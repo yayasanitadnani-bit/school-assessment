@@ -51,11 +51,11 @@ export default function LoginPage() {
       localStorage.setItem("user_role", userRole);
       localStorage.setItem("user_email", email.trim());
 
-      // 4. Redirect berdasarkan role
+      // 4. Redirect berdasarkan role (Wali Kelas masuk ke halaman utama /teacher dulu)
       if (userRole === "admin") {
         router.push("/admin/academic");
       } else {
-        router.push("/teacher/assessments");
+        router.push("/teacher");
       }
 
       router.refresh();
