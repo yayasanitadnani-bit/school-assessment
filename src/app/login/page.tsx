@@ -47,13 +47,41 @@ export default function LoginPage() {
             : "teacher";
       }
 
+      // --- MULAI FITUR KUNCI LOGIN WALI KELAS ---
+      if (userRole === "teacher" || userRole === "guru") {
+        // Cek status kunci dari database
+        const { data: settings } = await supabase
+          .from("app_settings")
+          .select("is_teacher_locked")
+          .eq("id", 1)
+          .single();
+
+        const isLocked = settings?.is_teacher_locked ?? true; // Default terkunci jika tabel belum siap
+
+        // Cek hari saat ini (0 = Minggu, 1 = Senin, ..., 6 = Sabtu)
+        const currentDay = new Date().getDay();
+        const isWeekend = currentDay === 0 || currentDay === 6;
+
+        // Jika tombol dikunci oleh Admin dan hari INI BUKAN hari Sabtu/Minggu
+        if (isLocked && !isWeekend) {
+          // Log out agar sesi auth bersih kembali
+          await supabase.auth.signOut();
+          // Hentikan proses login dan tampilkan pesan error
+          throw new Error(
+            "Akses ditolak: Login Wali Kelas hanya dibuka pada hari Sabtu dan Minggu.",
+          );
+        }
+      }
+      // --- AKHIR FITUR KUNCI ---
+
       // 3. Simpan sesi ke localStorage untuk referensi aplikasi
       localStorage.setItem("user_role", userRole);
       localStorage.setItem("user_email", email.trim());
 
       // 4. Redirect berdasarkan role (Wali Kelas masuk ke halaman utama /teacher dulu)
+      // 4. Redirect berdasarkan role
       if (userRole === "admin") {
-        router.push("/admin/academic");
+        router.push("/admin/dashboard"); // <-- Ubah ke /admin/dashboard
       } else {
         router.push("/teacher");
       }

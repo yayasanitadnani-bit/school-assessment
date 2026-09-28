@@ -166,7 +166,6 @@ export default function ParentPortalPage() {
     };
   };
 
-  // Helper untuk menghitung rata-rata per kategori (misal: UH, Kehadiran, Tugas, Sikap)
   const getCategoryAverage = (catId: number) => {
     const indList = indicators.filter((i) => i.category_id === catId);
     if (indList.length === 0) return 0;
@@ -180,8 +179,6 @@ export default function ParentPortalPage() {
     return Math.round((total / indList.length) * 10) / 10;
   };
 
-  // Cari nilai berdasarkan nama kategori secara fleksibel (case-insensitive)
-  // 2. Gunakan fungsi pencarian kategori yang lebih presisi berdasarkan ID atau nama persis
   const getCategoryScoreByName = (nameKeyword: string) => {
     const matchedCat = categories.find(
       (c) => c.name.trim().toLowerCase() === nameKeyword.trim().toLowerCase(),
@@ -190,7 +187,6 @@ export default function ParentPortalPage() {
     return getCategoryAverage(matchedCat.id);
   };
 
-  // Pastikan keyword pencarian sesuai dengan nama kategori di database Anda (misal: "UH", "KEHADIRAN", "TUGAS", "SIKAP")
   const scoreUH =
     getCategoryScoreByName("UH") || getCategoryScoreByName("Ulangan Harian");
   const scoreKehadiran =
@@ -198,20 +194,18 @@ export default function ParentPortalPage() {
   const scoreTugas = getCategoryScoreByName("Tugas");
   const scoreSikap = getCategoryScoreByName("Sikap");
 
-  // Rata-rata dari 4 kotak utama
   const weeklyAverage = Number(
     ((scoreUH + scoreKehadiran + scoreTugas + scoreSikap) / 4).toFixed(1),
   );
 
-  // 1. Selaraskan batas nilai status agar seragam dengan rincian di bawah
   const getStatusLabel = (score: number) => {
     if (score >= 85) return "Sangat Baik";
-    if (score >= 70) return "Baik"; // Diubah dari 75 menjadi 70 agar sama dengan rincian bawah
+    if (score >= 70) return "Baik";
     return "Perlu Perhatian";
   };
 
   const getStatusColor = (score: number) => {
-    if (score >= 70) return "text-emerald-600 bg-emerald-50"; // Disesuaikan juga ke 70
+    if (score >= 70) return "text-emerald-600 bg-emerald-50";
     return "text-amber-600 bg-amber-50";
   };
 
@@ -234,7 +228,7 @@ export default function ParentPortalPage() {
 
         {/* STEP 1: Pilih Kelas */}
         {!selectedLevel && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h2 className="text-sm font-bold text-slate-800 flex items-center space-x-2">
               <GraduationCap className="w-4 h-4 text-emerald-600" />
               <span>Langkah 1: Pilih Tingkat Kelas</span>
@@ -258,7 +252,7 @@ export default function ParentPortalPage() {
 
         {/* STEP 2: Pilih Rombel */}
         {selectedLevel && !selectedRombel && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h2 className="text-sm font-bold text-slate-800 flex items-center space-x-2">
                 <Users className="w-4 h-4 text-emerald-600" />
@@ -295,9 +289,9 @@ export default function ParentPortalPage() {
           </div>
         )}
 
-        {/* STEP 3: Cari Siswa & Rapor Bertingkat */}
-        {selectedRombel && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5">
+        {/* STEP 3: Cari Siswa (Hanya Tampil Jika Siswa Belum Dipilih) */}
+        {selectedRombel && !selectedStudent && (
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-100 pb-4 gap-3">
               <div>
                 <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">
@@ -321,7 +315,7 @@ export default function ParentPortalPage() {
 
             <div className="space-y-3">
               <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                Cari Nama Siswa
+                Langkah 3: Cari Nama Siswa
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -345,19 +339,17 @@ export default function ParentPortalPage() {
                   Tidak ada siswa yang ditemukan.
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 max-h-56 overflow-y-auto p-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 max-h-[400px] overflow-y-auto p-1">
                   {filteredStudents.map((student) => (
                     <button
                       key={student.id}
                       onClick={() => handleSelectStudent(student)}
-                      className={`text-left p-3 rounded-xl border transition-all text-sm font-medium flex flex-col justify-between ${
-                        selectedStudent?.id === student.id
-                          ? "bg-emerald-50 border-emerald-500 text-emerald-900 shadow-sm"
-                          : "bg-white border-slate-200 hover:border-emerald-300 text-slate-700"
-                      }`}
+                      className="text-left p-4 rounded-xl border bg-white border-slate-200 hover:border-emerald-400 hover:shadow-md transition-all text-sm font-medium flex flex-col justify-between"
                     >
-                      <span className="truncate">{student.name}</span>
-                      <span className="text-xs text-slate-400 font-normal">
+                      <span className="truncate text-slate-800 font-bold">
+                        {student.name}
+                      </span>
+                      <span className="text-xs text-slate-400 font-normal mt-1">
                         NISN: {student.nisn}
                       </span>
                     </button>
@@ -365,267 +357,283 @@ export default function ParentPortalPage() {
                 </div>
               )}
             </div>
+          </div>
+        )}
 
-            {/* RAPOR BERTINGKAT & 5 KOTAK RINGKASAN */}
-            {selectedStudent && (
-              <div className="pt-4 border-t border-slate-100 space-y-6">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 p-4 rounded-xl border border-slate-200 gap-3">
+        {/* STEP 4: RAPOR BERTINGKAT & 5 KOTAK RINGKASAN */}
+        {selectedStudent && (
+          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Tombol Kembali (Navigasi Step 4) */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <button
+                onClick={() => setSelectedStudent(null)}
+                className="inline-flex items-center space-x-2 text-sm font-bold text-slate-500 hover:text-emerald-600 transition-colors bg-slate-50 hover:bg-emerald-50 px-4 py-2 rounded-xl"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Kembali ke Daftar Siswa</span>
+              </button>
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 p-5 rounded-2xl border border-slate-200 gap-4">
+              <div>
+                <span className="text-xs font-black text-emerald-600 uppercase tracking-widest">
+                  Rapor Perkembangan
+                </span>
+                <h3 className="text-2xl font-black text-slate-900 mt-1">
+                  {selectedStudent.name}
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  NISN: {selectedStudent.nisn} • {selectedRombel?.name}
+                </p>
+              </div>
+
+              <div className="flex items-center space-x-3 bg-white p-2.5 px-4 rounded-xl border border-slate-200 shadow-sm">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Pilih Minggu:
+                </span>
+                <select
+                  value={selectedWeek}
+                  onChange={(e) => setSelectedWeek(parseInt(e.target.value))}
+                  className="px-3 py-1.5 border-2 border-emerald-500 rounded-lg text-sm font-bold bg-emerald-50 text-emerald-800 focus:outline-none cursor-pointer"
+                >
+                  {Array.from({ length: 24 }, (_, i) => i + 1).map((w) => (
+                    <option key={w} value={w}>
+                      Minggu {w}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {loadingReport ? (
+              <div className="text-center py-12 text-sm text-slate-400">
+                Memuat rekapitulasi nilai...
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {/* ===== 5 KOTAK RINGKASAN OTOMATIS ===== */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 space-y-4 shadow-sm">
                   <div>
-                    <span className="text-xs font-bold text-emerald-600 uppercase">
-                      Rapor Perkembangan
-                    </span>
-                    <h3 className="text-lg font-bold text-slate-900">
-                      {selectedStudent.name}
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      NISN: {selectedStudent.nisn}
+                    <h4 className="text-base font-bold text-slate-800">
+                      Ringkasan Perkembangan
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Rata-rata nilai berdasarkan kelompok penilaian pada minggu
+                      ke-{selectedWeek}.
                     </p>
                   </div>
 
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs font-semibold text-slate-700">
-                      Pilih Minggu:
-                    </span>
-                    <select
-                      value={selectedWeek}
-                      onChange={(e) =>
-                        setSelectedWeek(parseInt(e.target.value))
-                      }
-                      className="px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-bold bg-white focus:outline-none"
-                    >
-                      {Array.from({ length: 24 }, (_, i) => i + 1).map((w) => (
-                        <option key={w} value={w}>
-                          Minggu {w}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+                    {/* Kotak 1: UH */}
+                    <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200 flex flex-col justify-between hover:border-emerald-200 transition-colors">
+                      <div>
+                        <span className="text-3xl font-black text-slate-900">
+                          {scoreUH}
+                        </span>
+                        <span className="text-xs font-bold text-slate-700 block mt-1">
+                          UH
+                        </span>
+                      </div>
+                      <div className="mt-3">
+                        <span
+                          className={`text-[11px] font-bold px-2.5 py-1 rounded-md ${getStatusColor(scoreUH)}`}
+                        >
+                          {getStatusLabel(scoreUH)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Kotak 2: Kehadiran */}
+                    <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200 flex flex-col justify-between hover:border-emerald-200 transition-colors">
+                      <div>
+                        <span className="text-3xl font-black text-slate-900">
+                          {scoreKehadiran}
+                        </span>
+                        <span className="text-xs font-bold text-slate-700 block mt-1">
+                          Kehadiran
+                        </span>
+                      </div>
+                      <div className="mt-3">
+                        <span
+                          className={`text-[11px] font-bold px-2.5 py-1 rounded-md ${getStatusColor(scoreKehadiran)}`}
+                        >
+                          {getStatusLabel(scoreKehadiran)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Kotak 3: Tugas */}
+                    <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200 flex flex-col justify-between hover:border-emerald-200 transition-colors">
+                      <div>
+                        <span className="text-3xl font-black text-slate-900">
+                          {scoreTugas}
+                        </span>
+                        <span className="text-xs font-bold text-slate-700 block mt-1">
+                          Tugas
+                        </span>
+                      </div>
+                      <div className="mt-3">
+                        <span
+                          className={`text-[11px] font-bold px-2.5 py-1 rounded-md ${getStatusColor(scoreTugas)}`}
+                        >
+                          {getStatusLabel(scoreTugas)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Kotak 4: Sikap */}
+                    <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200 flex flex-col justify-between hover:border-emerald-200 transition-colors">
+                      <div>
+                        <span className="text-3xl font-black text-slate-900">
+                          {scoreSikap}
+                        </span>
+                        <span className="text-xs font-bold text-slate-700 block mt-1">
+                          Sikap
+                        </span>
+                      </div>
+                      <div className="mt-3">
+                        <span
+                          className={`text-[11px] font-bold px-2.5 py-1 rounded-md ${getStatusColor(scoreSikap)}`}
+                        >
+                          {getStatusLabel(scoreSikap)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Kotak 5: Rata-Rata Minggu Ini */}
+                    <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200 flex flex-col justify-between sm:col-span-2 lg:col-span-1 shadow-sm">
+                      <div>
+                        <span className="text-3xl font-black text-emerald-700">
+                          {weeklyAverage}
+                        </span>
+                        <span className="text-xs font-bold text-emerald-900 block mt-1">
+                          Rata-Rata
+                        </span>
+                      </div>
+                      <div className="mt-3">
+                        <span className="text-[11px] font-bold px-2.5 py-1 rounded-md bg-emerald-600 text-white shadow-sm">
+                          Pekan Ini
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
+                {/* =========================================== */}
 
-                {loadingReport ? (
-                  <div className="text-center py-8 text-sm text-slate-400">
-                    Memuat rekapitulasi nilai...
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {/* ===== 5 KOTAK RINGKASAN OTOMATIS ===== */}
-                    <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3 shadow-sm">
-                      <div>
-                        <h4 className="text-sm font-bold text-slate-800">
-                          Ringkasan Perkembangan
-                        </h4>
-                        <p className="text-xs text-slate-500">
-                          Rata-rata nilai berdasarkan kelompok penilaian pada
-                          minggu ke-{selectedWeek}.
-                        </p>
-                      </div>
+                <div className="flex items-center space-x-2 pt-4 border-t border-slate-100">
+                  <Award className="w-5 h-5 text-emerald-600" />
+                  <h4 className="text-base font-bold text-slate-800">
+                    Rincian Indikator Minggu ke-{selectedWeek}
+                  </h4>
+                </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                        {/* Kotak 1: UH */}
-                        <div className="bg-slate-50/80 rounded-xl p-3.5 border border-slate-200 flex flex-col justify-between">
-                          <div>
-                            <span className="text-2xl font-black text-slate-900">
-                              {scoreUH}
-                            </span>
-                            <span className="text-xs font-bold text-slate-700 ml-2">
-                              UH
-                            </span>
-                          </div>
-                          <div className="mt-2">
-                            <span
-                              className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${getStatusColor(scoreUH)}`}
-                            >
-                              {getStatusLabel(scoreUH)}
-                            </span>
-                          </div>
+                {/* Looping Aspek / Variabel Utama */}
+                <div className="space-y-6">
+                  {variables.map((variable) => {
+                    const catList = categories.filter(
+                      (c) => c.variable_id === variable.id,
+                    );
+                    if (catList.length === 0) return null;
+
+                    return (
+                      <div
+                        key={variable.id}
+                        className="border-2 border-slate-100 rounded-2xl p-5 sm:p-6 space-y-5 bg-slate-50/30 shadow-sm"
+                      >
+                        <div className="border-b-2 border-emerald-500 pb-2 inline-block">
+                          <h3 className="text-lg font-black text-slate-900 uppercase tracking-wider">
+                            {variable.name}
+                          </h3>
                         </div>
 
-                        {/* Kotak 2: Kehadiran */}
-                        <div className="bg-slate-50/80 rounded-xl p-3.5 border border-slate-200 flex flex-col justify-between">
-                          <div>
-                            <span className="text-2xl font-black text-slate-900">
-                              {scoreKehadiran}
-                            </span>
-                            <span className="text-xs font-bold text-slate-700 ml-2">
-                              Kehadiran
-                            </span>
-                          </div>
-                          <div className="mt-2">
-                            <span
-                              className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${getStatusColor(scoreKehadiran)}`}
-                            >
-                              {getStatusLabel(scoreKehadiran)}
-                            </span>
-                          </div>
-                        </div>
+                        <div className="space-y-5 mt-2">
+                          {catList.map((cat) => {
+                            const indList = indicators.filter(
+                              (i) => cat.id && i.category_id === cat.id,
+                            );
+                            if (indList.length === 0) return null;
 
-                        {/* Kotak 3: Tugas */}
-                        <div className="bg-slate-50/80 rounded-xl p-3.5 border border-slate-200 flex flex-col justify-between">
-                          <div>
-                            <span className="text-2xl font-black text-slate-900">
-                              {scoreTugas}
-                            </span>
-                            <span className="text-xs font-bold text-slate-700 ml-2">
-                              Tugas
-                            </span>
-                          </div>
-                          <div className="mt-2">
-                            <span
-                              className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${getStatusColor(scoreTugas)}`}
-                            >
-                              {getStatusLabel(scoreTugas)}
-                            </span>
-                          </div>
-                        </div>
+                            const catAvg = getCategoryAverage(cat.id);
 
-                        {/* Kotak 4: Sikap */}
-                        <div className="bg-slate-50/80 rounded-xl p-3.5 border border-slate-200 flex flex-col justify-between">
-                          <div>
-                            <span className="text-2xl font-black text-slate-900">
-                              {scoreSikap}
-                            </span>
-                            <span className="text-xs font-bold text-slate-700 ml-2">
-                              Sikap
-                            </span>
-                          </div>
-                          <div className="mt-2">
-                            <span
-                              className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${getStatusColor(scoreSikap)}`}
-                            >
-                              {getStatusLabel(scoreSikap)}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Kotak 5: Rata-Rata Minggu Ini */}
-                        <div className="bg-emerald-50/90 rounded-xl p-3.5 border border-emerald-200 flex flex-col justify-between sm:col-span-2 lg:col-span-1">
-                          <div>
-                            <span className="text-2xl font-black text-emerald-700">
-                              {weeklyAverage}
-                            </span>
-                            <span className="text-xs font-bold text-emerald-900 ml-1">
-                              Rata-Rata
-                            </span>
-                          </div>
-                          <div className="mt-2">
-                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-600 text-white">
-                              Pekan Ini
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    {/* =========================================== */}
-
-                    <h4 className="text-sm font-bold text-slate-800 flex items-center space-x-1.5 pt-2">
-                      <Award className="w-4 h-4 text-emerald-600" />
-                      <span>Rincian Indikator Minggu ke-{selectedWeek}</span>
-                    </h4>
-
-                    {/* Looping Aspek / Variabel Utama */}
-                    <div className="space-y-6">
-                      {variables.map((variable) => {
-                        const catList = categories.filter(
-                          (c) => c.variable_id === variable.id,
-                        );
-                        if (catList.length === 0) return null;
-
-                        return (
-                          <div
-                            key={variable.id}
-                            className="border-2 border-slate-200 rounded-2xl p-5 space-y-4 bg-white shadow-sm"
-                          >
-                            <div className="border-b-2 border-emerald-500 pb-2">
-                              <h3 className="text-base font-extrabold text-slate-900 uppercase tracking-wide">
-                                {variable.name}
-                              </h3>
-                            </div>
-
-                            <div className="space-y-4">
-                              {catList.map((cat) => {
-                                const indList = indicators.filter(
-                                  (i) => cat.id && i.category_id === cat.id,
-                                );
-                                if (indList.length === 0) return null;
-
-                                const catAvg = getCategoryAverage(cat.id);
-
-                                return (
-                                  <div
-                                    key={cat.id}
-                                    className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3"
-                                  >
-                                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                                      <div className="flex items-center space-x-2">
-                                        <FolderOpen className="w-4 h-4 text-emerald-600" />
-                                        <h4 className="font-bold text-slate-800 uppercase text-xs tracking-wider">
-                                          {cat.name}
-                                        </h4>
-                                        <span className="text-[11px] text-slate-400">
-                                          ({indList.length} indikator)
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center space-x-2">
-                                        <span className="text-xs text-slate-500 font-medium">
-                                          Rata-rata:
-                                        </span>
-                                        <span
-                                          className={`text-xs font-bold px-2.5 py-0.5 rounded-lg ${
-                                            catAvg >= 85
-                                              ? "bg-emerald-100 text-emerald-800"
-                                              : catAvg >= 70
-                                                ? "bg-blue-100 text-blue-800"
-                                                : "bg-amber-100 text-amber-800"
-                                          }`}
-                                        >
-                                          {catAvg} (
-                                          {catAvg >= 85
-                                            ? "Sangat Baik"
-                                            : catAvg >= 70
-                                              ? "Baik"
-                                              : "Perlu Perhatian"}
-                                          )
-                                        </span>
-                                      </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      {indList.map((ind) => {
-                                        const info = getScoreInfo(ind.id);
-                                        return (
-                                          <div
-                                            key={ind.id}
-                                            className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2"
-                                          >
-                                            <div>
-                                              <span className="font-semibold text-slate-800">
-                                                • {ind.name}
-                                              </span>
-                                              {info.notes && (
-                                                <p className="text-slate-500 italic mt-0.5">
-                                                  Catatan: "{info.notes}"
-                                                </p>
-                                              )}
-                                            </div>
-                                            <div className="flex items-center space-x-2 self-end sm:self-auto">
-                                              <span className="font-bold text-slate-900 bg-slate-100 px-3 py-1 rounded-lg">
-                                                Nilai: {info.score || "-"}
-                                              </span>
-                                            </div>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
+                            return (
+                              <div
+                                key={cat.id}
+                                className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm"
+                              >
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-3">
+                                  <div className="flex items-center space-x-2">
+                                    <FolderOpen className="w-5 h-5 text-emerald-600" />
+                                    <h4 className="font-bold text-slate-800 uppercase text-sm tracking-wider">
+                                      {cat.name}
+                                    </h4>
+                                    <span className="text-[11px] font-bold px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md ml-2">
+                                      {indList.length} Butir
+                                    </span>
                                   </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-xs text-slate-500 font-medium">
+                                      Rata-rata:
+                                    </span>
+                                    <span
+                                      className={`text-xs font-bold px-2.5 py-1 rounded-lg ${
+                                        catAvg >= 85
+                                          ? "bg-emerald-100 text-emerald-800"
+                                          : catAvg >= 70
+                                            ? "bg-blue-100 text-blue-800"
+                                            : "bg-amber-100 text-amber-800"
+                                      }`}
+                                    >
+                                      {catAvg} (
+                                      {catAvg >= 85
+                                        ? "Sangat Baik"
+                                        : catAvg >= 70
+                                          ? "Baik"
+                                          : "Perlu Perhatian"}
+                                      )
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2 mt-4">
+                                  {indList.map((ind, iIdx) => {
+                                    const info = getScoreInfo(ind.id);
+                                    return (
+                                      <div
+                                        key={ind.id}
+                                        className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between text-sm gap-3 hover:border-emerald-200 transition-colors"
+                                      >
+                                        <div className="flex items-start space-x-3 pr-2">
+                                          <span className="w-5 h-5 shrink-0 bg-white border border-slate-200 text-slate-600 rounded flex items-center justify-center text-[10px] font-bold mt-0.5">
+                                            {iIdx + 1}
+                                          </span>
+                                          <div>
+                                            <span className="font-semibold text-slate-800 leading-snug">
+                                              {ind.name}
+                                            </span>
+                                            {info.notes && (
+                                              <p className="text-slate-500 italic text-xs mt-1 bg-white p-2 rounded border border-slate-100">
+                                                Catatan Guru: "{info.notes}"
+                                              </p>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center space-x-2 self-end sm:self-auto shrink-0">
+                                          <span className="font-black text-slate-900 bg-white border border-slate-200 px-4 py-1.5 rounded-lg shadow-sm">
+                                            Nilai: {info.score || "-"}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

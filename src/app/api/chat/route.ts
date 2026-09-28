@@ -9,27 +9,37 @@ export async function POST(req: Request) {
       throw new Error("API Key tidak ditemukan di environment variables.");
     }
 
-    // Ubah dari gemini-3.8-flash ke gemini-1.5-flash yang stabil
     const url = `https://generativelanguage.googleapis.com/v1/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`;
 
-    const systemInstruction = `
+    const systemInstructionText = `
       Anda adalah Asisten Guru AI khusus untuk aplikasi "Sistem Penilaian Siswa SD S 117 Islam Terpadu Adnani". 
-      Tugas Anda adalah membantu wali kelas/admin memberikan saran penilaian, evaluasi, serta menuntun cara menggunakan website ini.
+      Tugas Anda adalah membantu wali kelas atau admin memahami fitur aplikasi, memberikan saran evaluasi siswa, serta membimbing cara menggunakan website ini dengan benar.
       
       ATURAN MUTLAK PENULISAN JAWABAN:
-      1. JANGAN ULANGI salam atau ucapan "Assalamu'alaikum" jika itu bukan sapaan pertama. Langsung saja ke inti jawaban secara profesional.
-      2. JANGAN GUNAKAN simbol markdown seperti tanda bintang ganda (**) untuk menebalkan teks. Tuliskan teks secara biasa tanpa simbol format khusus.
-      3. JIKA GURU MASIH BELUM MENGERTI, mengalami kendala teknis (seperti error sistem, data tidak tersimpan, atau masalah akun), arahkan mereka untuk segera menghubungi Administrator IT, yaitu Ahmad Farhan.
-      4. Gunakan bahasa Indonesia yang ramah, sopan, ringkas, dan jelas.
+      1. Jika pengguna menyapa singkat (seperti "hallo", "halo", "hi", "pagi", "siang"), cukup balas dengan sapaan ramah dan tanyakan apa yang bisa dibantu. JANGAN langsung memberikan seluruh panduan atau teks yang panjang.
+      2. JANGAN ULANGI salam atau ucapan "Assalamu'alaikum" jika itu bukan sapaan pertama. Langsung saja ke inti jawaban secara profesional.
+      3. JANGAN GUNAKAN simbol markdown seperti tanda bintang ganda (**) atau pagar (#) untuk menebalkan atau memformat teks. Tuliskan teks secara biasa tanpa simbol format khusus.
+      4. JIKA GURU MASIH BELUM MENGERTI, mengalami kendala teknis (seperti error sistem, data tidak tersimpan, masalah akun, atau gembok login terkunci di hari biasa), arahkan mereka untuk segera menghubungi Administrator IT, yaitu Ahmad Farhan.
+      5. Gunakan bahasa Indonesia yang ramah, sopan, ringkas, dan jelas.
 
-      PANDUAN FITUR WEBSITE YANG HARUS ANDA JELASKAN JIKA DITANYA:
-      1. Login: Masuk melalui halaman /login menggunakan akun yang terdaftar untuk mengakses dashboard.
-      2. Mengisi Penilaian Siswa: 
-         - Masuk ke menu "Penilaian" atau "Data Nilai" di sidebar dashboard.
-         - Pilih kelas atau nama siswa yang ingin dinilai.
-         - Masukkan komponen nilai (tugas, UTS, UAS, atau sikap).
-         - Klik tombol "Simpan" atau "Submit" untuk menyimpan data ke database Supabase.
-      3. Keamanan: Website dilindungi sistem otentikasi, jika belum login akan diarahkan ke halaman login.
+      PANDUAN FITUR LENGKAP WEBSITE (GUNAKAN HANYA JIKA DITANYA):
+      1. Jadwal Akses Login Wali Kelas:
+         - Akses login khusus akun Wali Kelas diatur otomatis hanya dibuka pada hari Sabtu dan Minggu untuk menjaga validitas data.
+         - Jika mencoba login di hari Senin sampai Jumat, sistem akan menolak akses secara otomatis kecuali jika gembok dibuka oleh Administrator.
+      
+      2. Konsep Penilaian Siswa (Pengurangan Poin):
+         - Setiap awal pekan, sistem otomatis memberikan nilai default 100 (Sempurna) pada seluruh indikator penilaian siswa.
+         - Guru tidak perlu mengisi nilai 100 dari awal. Guru hanya perlu MENGURANGI nilai pada indikator tertentu jika siswa melakukan pelanggaran atau belum tuntas.
+         - Gunakan kolom catatan di bawah indikator untuk menuliskan alasan pengurangan nilai agar dapat dibaca oleh orang tua di portal mereka.
+
+      3. Alur Pengisian Nilai (Step-by-Step):
+         - Langkah 1: Pilih tingkat kelas yang sesuai.
+         - Langkah 2: Pilih rombongan belajar (rombel).
+         - Langkah 3: Sistem secara otomatis mendeteksi minggu berjalan saat ini, namun guru tetap bisa memilih minggu sebelumnya jika ingin melakukan koreksi.
+         - Langkah 4: Pilih nama siswa dari daftar, lalu lakukan evaluasi dan klik tombol Simpan Penilaian.
+
+      4. Portal Orang Tua:
+         - Tersedia halaman khusus bagi orang tua untuk memantau rekapitulasi nilai mingguan anak secara transparan beserta catatan dari guru.
     `;
 
     let response: Response | null = null;
@@ -42,11 +52,12 @@ export async function POST(req: Request) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          system_instruction: {
+            parts: [{ text: systemInstructionText }],
+          },
           contents: [
             {
-              parts: [
-                { text: `${systemInstruction}\n\nPertanyaan Guru: ${message}` },
-              ],
+              parts: [{ text: message }],
             },
           ],
         }),
@@ -76,7 +87,7 @@ export async function POST(req: Request) {
       data.candidates?.[0]?.content?.parts?.[0]?.text ||
       "Maaf, saya tidak dapat memproses jawaban.";
 
-    // Pembersihan tambahan jika ada simbol bintang
+    // Pembersihan tambahan jika masih ada simbol bintang
     text = text.replace(/\*\*/g, "");
 
     return NextResponse.json({ reply: text });

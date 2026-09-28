@@ -6,6 +6,8 @@ import {
   Calendar,
   Layers,
 } from "lucide-react";
+// Sesuaikan import ini dengan lokasi file TeacherLock.tsx yang Anda buat
+import TeacherLock from "@/components/TeacherLock";
 
 export default async function AdminDashboardPage() {
   const supabase = await createClient();
@@ -28,6 +30,15 @@ export default async function AdminDashboardPage() {
     .select("name")
     .eq("is_active", true)
     .single();
+
+  // Ambil status pengunci login wali kelas
+  const { data: settings } = await supabase
+    .from("app_settings")
+    .select("is_teacher_locked")
+    .eq("id", 1)
+    .single();
+
+  const isLocked = settings?.is_teacher_locked ?? true;
 
   const stats = [
     {
@@ -99,6 +110,9 @@ export default async function AdminDashboardPage() {
           );
         })}
       </div>
+
+      {/* Komponen Pengunci Login Wali Kelas */}
+      <TeacherLock initialLocked={isLocked} />
 
       {/* Informasi / Panduan Singkat */}
       <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">

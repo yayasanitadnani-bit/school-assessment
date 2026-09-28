@@ -2,7 +2,7 @@
 
 import { Bot, Send, ArrowLeft, User } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 export default function AiAssistantPage() {
   const [input, setInput] = useState("");
@@ -17,6 +17,18 @@ export default function AiAssistantPage() {
   );
   const [isLoading, setIsLoading] = useState(false);
 
+  // Ref untuk target auto-scroll
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // Jalankan auto-scroll setiap kali pesan bertambah atau status loading berubah
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isLoading]);
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
@@ -28,7 +40,7 @@ export default function AiAssistantPage() {
     setIsLoading(true);
 
     try {
-      // Mengirim pesan ke endpoint API yang baru saja kita buat
+      // Mengirim pesan ke endpoint API chat
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -119,6 +131,9 @@ export default function AiAssistantPage() {
               </div>
             </div>
           )}
+
+          {/* Target Penanda Auto-Scroll */}
+          <div ref={messagesEndRef} />
         </div>
 
         {/* Kotak Ketik (Input Chat) */}

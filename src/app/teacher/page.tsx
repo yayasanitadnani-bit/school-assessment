@@ -59,7 +59,7 @@ export default function TeacherDashboard() {
 
         {/* Menu 3: (Opsional) Rekap Nilai/Panduan */}
         <Link
-          href="#"
+          href="/teacher/guide"
           className="group bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-amber-500 hover:shadow-md transition-all flex flex-col items-center text-center space-y-4"
         >
           <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
