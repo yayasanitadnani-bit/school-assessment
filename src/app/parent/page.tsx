@@ -64,6 +64,8 @@ export default function ParentPortalPage() {
   const [indicators, setIndicators] = useState<Indicator[]>([]);
   const [studentScores, setStudentScores] = useState<ScoreItem[]>([]);
 
+  // State loading awal database
+  const [loadingInitial, setLoadingInitial] = useState(true);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [loadingReport, setLoadingReport] = useState(false);
 
@@ -71,6 +73,7 @@ export default function ParentPortalPage() {
 
   useEffect(() => {
     const fetchInitialData = async () => {
+      setLoadingInitial(true);
       const { data: rombelData } = await supabase
         .from("rombels")
         .select("*")
@@ -105,6 +108,7 @@ export default function ParentPortalPage() {
       setVariables(varData || []);
       setCategories(catData || []);
       setIndicators(indData || []);
+      setLoadingInitial(false);
     };
     fetchInitialData();
   }, []);
@@ -233,20 +237,36 @@ export default function ParentPortalPage() {
               <GraduationCap className="w-4 h-4 text-emerald-600" />
               <span>Langkah 1: Pilih Tingkat Kelas</span>
             </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {availableLevels.map((lvl) => (
-                <button
-                  key={lvl}
-                  onClick={() => setSelectedLevel(lvl)}
-                  className="p-4 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition-all text-center font-bold text-slate-800 shadow-sm flex flex-col items-center justify-center space-y-1"
-                >
-                  <span className="text-xl text-emerald-600">Kelas {lvl}</span>
-                  <span className="text-xs font-normal text-slate-400">
-                    {rombels.filter((r) => r.level === lvl).length} Rombel
-                  </span>
-                </button>
-              ))}
-            </div>
+
+            {loadingInitial ? (
+              <div className="text-center py-10 space-y-2">
+                <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <p className="text-sm text-slate-400">
+                  Memuat data kelas dari server...
+                </p>
+              </div>
+            ) : availableLevels.length === 0 ? (
+              <div className="text-center py-8 text-sm text-slate-400 border border-dashed border-slate-200 rounded-xl">
+                Belum ada data kelas/rombel yang terdaftar di sistem.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {availableLevels.map((lvl) => (
+                  <button
+                    key={lvl}
+                    onClick={() => setSelectedLevel(lvl)}
+                    className="p-4 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition-all text-center font-bold text-slate-800 shadow-sm flex flex-col items-center justify-center space-y-1"
+                  >
+                    <span className="text-xl text-emerald-600">
+                      Kelas {lvl}
+                    </span>
+                    <span className="text-xs font-normal text-slate-400">
+                      {rombels.filter((r) => r.level === lvl).length} Rombel
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -289,7 +309,7 @@ export default function ParentPortalPage() {
           </div>
         )}
 
-        {/* STEP 3: Cari Siswa (Hanya Tampil Jika Siswa Belum Dipilih) */}
+        {/* STEP 3: Cari Siswa */}
         {selectedRombel && !selectedStudent && (
           <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-100 pb-4 gap-3">
@@ -331,8 +351,11 @@ export default function ParentPortalPage() {
               </div>
 
               {loadingStudents ? (
-                <div className="text-center py-6 text-sm text-slate-400">
-                  Memuat data siswa...
+                <div className="text-center py-8 space-y-2">
+                  <div className="w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <p className="text-sm text-slate-400">
+                    Memuat daftar siswa...
+                  </p>
                 </div>
               ) : filteredStudents.length === 0 ? (
                 <div className="text-center py-6 text-sm text-slate-400 border border-dashed border-slate-200 rounded-xl">
@@ -360,10 +383,9 @@ export default function ParentPortalPage() {
           </div>
         )}
 
-        {/* STEP 4: RAPOR BERTINGKAT & 5 KOTAK RINGKASAN */}
+        {/* STEP 4: RAPOR BERTINGKAT & KOTAK RINGKASAN */}
         {selectedStudent && (
           <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Tombol Kembali (Navigasi Step 4) */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <button
                 onClick={() => setSelectedStudent(null)}
@@ -406,12 +428,15 @@ export default function ParentPortalPage() {
             </div>
 
             {loadingReport ? (
-              <div className="text-center py-12 text-sm text-slate-400">
-                Memuat rekapitulasi nilai...
+              <div className="text-center py-12 space-y-2">
+                <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <p className="text-sm text-slate-400">
+                  Memuat rekapitulasi nilai...
+                </p>
               </div>
             ) : (
               <div className="space-y-8">
-                {/* ===== 5 KOTAK RINGKASAN OTOMATIS ===== */}
+                {/* KOTAK RINGKASAN */}
                 <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 space-y-4 shadow-sm">
                   <div>
                     <h4 className="text-base font-bold text-slate-800">
@@ -424,8 +449,7 @@ export default function ParentPortalPage() {
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-                    {/* Kotak 1: UH */}
-                    <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200 flex flex-col justify-between hover:border-emerald-200 transition-colors">
+                    <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200 flex flex-col justify-between">
                       <div>
                         <span className="text-3xl font-black text-slate-900">
                           {scoreUH}
@@ -443,8 +467,7 @@ export default function ParentPortalPage() {
                       </div>
                     </div>
 
-                    {/* Kotak 2: Kehadiran */}
-                    <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200 flex flex-col justify-between hover:border-emerald-200 transition-colors">
+                    <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200 flex flex-col justify-between">
                       <div>
                         <span className="text-3xl font-black text-slate-900">
                           {scoreKehadiran}
@@ -462,8 +485,7 @@ export default function ParentPortalPage() {
                       </div>
                     </div>
 
-                    {/* Kotak 3: Tugas */}
-                    <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200 flex flex-col justify-between hover:border-emerald-200 transition-colors">
+                    <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200 flex flex-col justify-between">
                       <div>
                         <span className="text-3xl font-black text-slate-900">
                           {scoreTugas}
@@ -481,8 +503,7 @@ export default function ParentPortalPage() {
                       </div>
                     </div>
 
-                    {/* Kotak 4: Sikap */}
-                    <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200 flex flex-col justify-between hover:border-emerald-200 transition-colors">
+                    <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200 flex flex-col justify-between">
                       <div>
                         <span className="text-3xl font-black text-slate-900">
                           {scoreSikap}
@@ -500,7 +521,6 @@ export default function ParentPortalPage() {
                       </div>
                     </div>
 
-                    {/* Kotak 5: Rata-Rata Minggu Ini */}
                     <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200 flex flex-col justify-between sm:col-span-2 lg:col-span-1 shadow-sm">
                       <div>
                         <span className="text-3xl font-black text-emerald-700">
@@ -518,7 +538,6 @@ export default function ParentPortalPage() {
                     </div>
                   </div>
                 </div>
-                {/* =========================================== */}
 
                 <div className="flex items-center space-x-2 pt-4 border-t border-slate-100">
                   <Award className="w-5 h-5 text-emerald-600" />
@@ -527,7 +546,6 @@ export default function ParentPortalPage() {
                   </h4>
                 </div>
 
-                {/* Looping Aspek / Variabel Utama */}
                 <div className="space-y-6">
                   {variables.map((variable) => {
                     const catList = categories.filter(

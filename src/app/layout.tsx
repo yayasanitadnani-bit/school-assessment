@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import AuthGuard from "@/components/AuthGuard"; // 👈 1. Import penjaganya di sini
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Sistem Penilaian Siswa SD",
-  description: "Aplikasi penilaian dan pemantauan perkembangan siswa SD",
+  title: "SD S 117 Islam Terpadu Adnani",
+  description: "Sistem Informasi Penilaian dan Perkembangan Siswa",
 };
 
 export default function RootLayout({
@@ -17,10 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="id">
-      <body className={inter.className}>
-        {/* 👇 2. Kurung {children} dengan AuthGuard 👇 */}
-        <AuthGuard>{children}</AuthGuard>
-      </body>
+      <body className={inter.className}>{children}</body>
     </html>
   );
 }

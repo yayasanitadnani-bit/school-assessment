@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import { Lock, Mail, Loader2, School } from "lucide-react";
+import { Lock, Mail, Loader2, School, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -29,18 +30,17 @@ export default function LoginPage() {
 
       if (authError) throw authError;
 
-      // 2. Cek role user di tabel public.users berdasarkan EMAIL (lebih aman & pasti ketemu)
+      // 2. Cek role user di tabel public.users berdasarkan EMAIL
       const { data: userData, error: userError } = await supabase
         .from("users")
         .select("role")
         .eq("email", email.trim().toLowerCase())
         .single();
 
-      // Jika email belum ada di tabel users, kita tentukan otomatis berdasarkan email-nya
+      // Jika email belum ada di tabel users, kita tentukan otomatis
       let userRole = userData?.role;
 
       if (!userRole) {
-        // Fallback cerdas jika belum terdaftar di tabel users
         userRole =
           email.trim().toLowerCase() === "yayasanitadnani@gmail.com"
             ? "admin"
@@ -49,24 +49,19 @@ export default function LoginPage() {
 
       // --- MULAI FITUR KUNCI LOGIN WALI KELAS ---
       if (userRole === "teacher" || userRole === "guru") {
-        // Cek status kunci dari database
         const { data: settings } = await supabase
           .from("app_settings")
           .select("is_teacher_locked")
           .eq("id", 1)
           .single();
 
-        const isLocked = settings?.is_teacher_locked ?? true; // Default terkunci jika tabel belum siap
+        const isLocked = settings?.is_teacher_locked ?? true;
 
-        // Cek hari saat ini (0 = Minggu, 1 = Senin, ..., 6 = Sabtu)
         const currentDay = new Date().getDay();
         const isWeekend = currentDay === 0 || currentDay === 6;
 
-        // Jika tombol dikunci oleh Admin dan hari INI BUKAN hari Sabtu/Minggu
         if (isLocked && !isWeekend) {
-          // Log out agar sesi auth bersih kembali
           await supabase.auth.signOut();
-          // Hentikan proses login dan tampilkan pesan error
           throw new Error(
             "Akses ditolak: Login Wali Kelas hanya dibuka pada hari Sabtu dan Minggu.",
           );
@@ -74,14 +69,13 @@ export default function LoginPage() {
       }
       // --- AKHIR FITUR KUNCI ---
 
-      // 3. Simpan sesi ke localStorage untuk referensi aplikasi
+      // 3. Simpan sesi ke localStorage
       localStorage.setItem("user_role", userRole);
       localStorage.setItem("user_email", email.trim());
 
-      // 4. Redirect berdasarkan role (Wali Kelas masuk ke halaman utama /teacher dulu)
       // 4. Redirect berdasarkan role
       if (userRole === "admin") {
-        router.push("/admin/dashboard"); // <-- Ubah ke /admin/dashboard
+        router.push("/admin/dashboard");
       } else {
         router.push("/teacher");
       }
@@ -95,36 +89,50 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-100">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Background Soft Glows (Senada dengan Landing Page) */}
+      <div className="absolute top-[-10%] left-[-5%] w-[500px] h-[500px] bg-emerald-200/40 blur-[120px] pointer-events-none rounded-full" />
+      <div className="absolute bottom-[-10%] right-[-5%] w-[400px] h-[400px] bg-teal-200/40 blur-[150px] pointer-events-none rounded-full" />
+
+      {/* Tombol Kembali ke Beranda */}
+      <Link
+        href="/"
+        className="absolute top-6 left-6 sm:top-8 sm:left-8 flex items-center space-x-2 text-sm font-medium text-slate-500 hover:text-emerald-600 transition-colors z-20 bg-white/50 backdrop-blur-sm px-4 py-2 rounded-full border border-slate-200 shadow-sm"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        <span>Kembali ke Beranda</span>
+      </Link>
+
+      <div className="relative z-10 max-w-md w-full space-y-8 bg-white p-8 sm:p-10 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100">
         {/* Header Logo / Judul */}
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center mb-3">
-            <School className="w-6 h-6" />
+          <div className="mx-auto h-16 w-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-6 border border-emerald-100 shadow-sm">
+            <School className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900">
-            Sistem Penilaian Siswa SD
+          <h2 className="text-3xl font-black tracking-tight text-slate-900">
+            Portal Edukasi
           </h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Masuk menggunakan akun Admin atau Wali Kelas
+          <p className="mt-2 text-sm text-slate-500 font-medium">
+            SD S 117 Islam Terpadu Adnani
           </p>
         </div>
 
         {/* Notifikasi Error */}
         {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 text-sm text-red-700 rounded-r-lg">
-            {error}
+          <div className="bg-red-50 border border-red-200 p-4 text-sm text-red-600 rounded-2xl flex items-start space-x-3">
+            <span className="font-bold text-red-500 mt-0.5">!</span>
+            <span>{error}</span>
           </div>
         )}
 
         {/* Form Login */}
         <form className="mt-8 space-y-5" onSubmit={handleLogin}>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Email
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+              Email Pengguna
             </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+            <div className="relative group">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-emerald-500 transition-colors">
                 <Mail className="w-5 h-5" />
               </div>
               <input
@@ -132,18 +140,18 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm sm:text-base"
+                className="block w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm sm:text-base"
                 placeholder="nama@sekolah.com"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Password
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+              Kata Sandi
             </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+            <div className="relative group">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-emerald-500 transition-colors">
                 <Lock className="w-5 h-5" />
               </div>
               <input
@@ -151,7 +159,7 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm sm:text-base"
+                className="block w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm sm:text-base"
                 placeholder="••••••••"
               />
             </div>
@@ -160,12 +168,12 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors disabled:opacity-50"
+            className="w-full flex justify-center items-center py-3.5 px-4 rounded-2xl shadow-lg shadow-emerald-600/20 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all disabled:opacity-70 disabled:cursor-not-allowed active:scale-[0.98] mt-4"
           >
             {loading ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                Memproses...
+                Memverifikasi...
               </>
             ) : (
               "Masuk ke Sistem"
@@ -173,7 +181,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="text-center text-xs text-slate-500 pt-4 border-t border-slate-100">
+        <div className="text-center text-xs font-medium text-slate-400 pt-6 border-t border-slate-100">
           Gunakan akun yang telah didaftarkan oleh Administrator sekolah.
         </div>
       </div>
