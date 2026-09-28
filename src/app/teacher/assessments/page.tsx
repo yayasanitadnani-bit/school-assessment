@@ -348,7 +348,7 @@ export default function TeacherAssessmentPage() {
               onClick={async () => {
                 await supabase.auth.signOut();
                 localStorage.clear();
-                window.location.href = "/login";
+                window.location.href = "/guru";
               }}
               className="flex items-center space-x-1.5 px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-sm font-medium transition-colors"
             >
