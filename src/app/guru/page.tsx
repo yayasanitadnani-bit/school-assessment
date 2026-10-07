@@ -3,7 +3,14 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import { Lock, Mail, Loader2, School, ArrowLeft } from "lucide-react";
+import {
+  Lock,
+  Mail,
+  Loader2,
+  School,
+  ArrowLeft,
+  AlertTriangle,
+} from "lucide-react"; // <-- Tambah AlertTriangle di sini
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -20,8 +27,20 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
+    // 1. Dapatkan IP Address dan Perangkat (User Agent) secara diam-diam
+    let userIp = "Tidak diketahui";
+    const userAgent = navigator.userAgent; // Mendapatkan detail HP/Browser
+
     try {
-      // 1. Autentikasi email dan password via Supabase Auth
+      const response = await fetch("https://api.ipify.org?format=json");
+      const data = await response.json();
+      userIp = data.ip;
+    } catch (ipError) {
+      console.log("Gagal mendapatkan IP");
+    }
+
+    try {
+      // 2. Autentikasi email dan password via Supabase Auth
       const { data: authData, error: authError } =
         await supabase.auth.signInWithPassword({
           email: email.trim(),
@@ -30,16 +49,14 @@ export default function LoginPage() {
 
       if (authError) throw authError;
 
-      // 2. Cek role user di tabel public.users berdasarkan EMAIL
+      // 3. Cek role user di tabel public.users berdasarkan EMAIL
       const { data: userData, error: userError } = await supabase
         .from("users")
         .select("role")
         .eq("email", email.trim().toLowerCase())
         .single();
 
-      // Jika email belum ada di tabel users, kita tentukan otomatis
       let userRole = userData?.role;
-
       if (!userRole) {
         userRole =
           email.trim().toLowerCase() === "yayasanitadnani@gmail.com"
@@ -47,7 +64,7 @@ export default function LoginPage() {
             : "teacher";
       }
 
-      // --- MULAI FITUR KUNCI LOGIN WALI KELAS ---
+      // --- FITUR KUNCI LOGIN WALI KELAS ---
       if (userRole === "teacher" || userRole === "guru") {
         const { data: settings } = await supabase
           .from("app_settings")
@@ -56,7 +73,6 @@ export default function LoginPage() {
           .single();
 
         const isLocked = settings?.is_teacher_locked ?? true;
-
         const currentDay = new Date().getDay();
         const isWeekend = currentDay === 0 || currentDay === 6;
 
@@ -67,13 +83,22 @@ export default function LoginPage() {
           );
         }
       }
-      // --- AKHIR FITUR KUNCI ---
 
-      // 3. Simpan sesi ke localStorage
+      // --- CATAT LOG KEBERHASILAN ---
+      await supabase.from("login_logs").insert([
+        {
+          email_attempt: email.trim(),
+          ip_address: userIp,
+          user_agent: userAgent,
+          status: "BERHASIL LOGIN",
+        },
+      ]);
+
+      // 4. Simpan sesi ke localStorage
       localStorage.setItem("user_role", userRole);
       localStorage.setItem("user_email", email.trim());
 
-      // 4. Redirect berdasarkan role
+      // 5. Redirect berdasarkan role
       if (userRole === "admin") {
         router.push("/admin/dashboard");
       } else {
@@ -82,6 +107,16 @@ export default function LoginPage() {
 
       router.refresh();
     } catch (err: any) {
+      // --- CATAT LOG KEGAGALAN / PERCOBAAN ILEGAL ---
+      await supabase.from("login_logs").insert([
+        {
+          email_attempt: email.trim(),
+          ip_address: userIp,
+          user_agent: userAgent,
+          status: `GAGAL: ${err.message}`,
+        },
+      ]);
+
       setError(err.message || "Terjadi kesalahan saat masuk.");
     } finally {
       setLoading(false);
@@ -181,7 +216,22 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="text-center text-xs font-medium text-slate-400 pt-6 border-t border-slate-100">
+        {/* --- PESAN PERINGATAN KEAMANAN (SCARE TACTIC) --- */}
+        <div className="mt-6 p-4 bg-red-50/80 border border-red-200 rounded-2xl flex items-start space-x-3 shadow-sm">
+          <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <div className="text-[11px] sm:text-xs leading-relaxed text-red-700 font-medium text-left">
+            <span className="font-bold text-red-800 block mb-1 tracking-wide uppercase text-[10px] sm:text-[11px]">
+              Sistem Keamanan Aktif
+            </span>
+            Sistem dipantau secara ketat. Segala bentuk akses ilegal atau upaya
+            login paksa akan terekam secara otomatis.{" "}
+            <strong>Alamat IP, lokasi, dan perangkat Anda dicatat</strong> untuk
+            keperluan pelaporan tindak kejahatan siber.
+          </div>
+        </div>
+        {/* ------------------------------------------------ */}
+
+        <div className="text-center text-xs font-medium text-slate-400 pt-6 border-t border-slate-100 mt-6">
           Gunakan akun yang telah didaftarkan oleh Administrator sekolah.
         </div>
       </div>
