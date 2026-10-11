@@ -22,6 +22,7 @@ import {
   Eye,
   Award,
   Plus,
+  Edit2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -117,6 +118,12 @@ export default function TeacherAssessmentPage() {
   const [newStudentName, setNewStudentName] = useState("");
   const [newStudentNisn, setNewStudentNisn] = useState("");
   const [addingStudent, setAddingStudent] = useState(false);
+  // --- STATE MODAL EDIT SISWA DI SINI ---
+  const [isEditStudentOpen, setIsEditStudentOpen] = useState(false);
+  const [studentToEdit, setStudentToEdit] = useState<Student | null>(null);
+  const [editStudentName, setEditStudentName] = useState("");
+  const [editStudentNisn, setEditStudentNisn] = useState("");
+  const [editingStudent, setEditingStudent] = useState(false);
 
   // State Modal Preview Rapor Guru
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -287,7 +294,39 @@ export default function TeacherAssessmentPage() {
       setAddingStudent(false);
     }
   };
+  // --- FUNGSI EDIT SISWA ---
+  const handleEditStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!studentToEdit || !editStudentName.trim()) return;
 
+    setEditingStudent(true);
+    setError(null);
+
+    try {
+      const { error: updateError } = await supabase
+        .from("students")
+        .update({
+          name: editStudentName.trim(),
+          nisn: editStudentNisn.trim() || "-",
+        })
+        .eq("id", studentToEdit.id);
+
+      if (updateError) throw updateError;
+
+      setSuccess(`Data siswa berhasil diperbarui!`);
+      setIsEditStudentOpen(false);
+
+      // Segarkan daftar siswa di layar
+      await fetchStudentsList(selectedRombel);
+
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: any) {
+      setError(err.message || "Gagal memperbarui data siswa.");
+    } finally {
+      setEditingStudent(false);
+    }
+  };
+  // ---------------------------------------------------------
   const handleAddUHIndicator = async (categoryId: number) => {
     const catIndicators = indicators.filter(
       (i) => i.category_id === categoryId,
@@ -814,26 +853,46 @@ export default function TeacherAssessmentPage() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {students.map((st) => (
-                  <button
+                  <div
                     key={st.id}
-                    onClick={() => {
-                      setSelectedStudent(st);
-                      setStep(4);
-                    }}
-                    className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-emerald-500 hover:shadow-md transition-all flex items-start gap-3 text-left group"
+                    className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-emerald-500 hover:shadow-md transition-all flex items-start gap-3 relative"
                   >
-                    <div className="bg-emerald-50 p-2 rounded-lg group-hover:bg-emerald-100 transition-colors">
-                      <UserCircle2 className="w-6 h-6 text-emerald-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-slate-800 text-sm line-clamp-2 leading-snug group-hover:text-emerald-700">
-                        {st.name}
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-1">
-                        NISN: {st.nisn}
-                      </p>
-                    </div>
-                  </button>
+                    {/* Area Klik Kiri (Buka Halaman Nilai) */}
+                    <button
+                      onClick={() => {
+                        setSelectedStudent(st);
+                        setStep(4);
+                      }}
+                      className="flex-1 flex items-start gap-3 text-left pr-10 group"
+                    >
+                      <div className="bg-emerald-50 p-2 rounded-lg group-hover:bg-emerald-100 transition-colors">
+                        <UserCircle2 className="w-6 h-6 text-emerald-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-800 text-sm line-clamp-2 leading-snug group-hover:text-emerald-700">
+                          {st.name}
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-1">
+                          NISN: {st.nisn}
+                        </p>
+                      </div>
+                    </button>
+
+                    {/* Tombol Edit Siswa (Selalu Tampil & Ramah HP) */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation(); // Mencegah klik masuk ke halaman nilai
+                        setStudentToEdit(st);
+                        setEditStudentName(st.name);
+                        setEditStudentNisn(st.nisn === "-" ? "" : st.nisn);
+                        setIsEditStudentOpen(true);
+                      }}
+                      className="absolute top-3 right-3 p-2 bg-slate-50 text-slate-500 hover:text-amber-600 hover:bg-amber-100 rounded-xl border border-slate-200 transition-all active:scale-90 shadow-sm"
+                      title="Edit Data Siswa"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -901,6 +960,71 @@ export default function TeacherAssessmentPage() {
                     className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold"
                   >
                     {addingStudent ? "Menyimpan..." : "Simpan Siswa"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+        {/* --- MODAL EDIT SISWA --- */}
+        {isEditStudentOpen && studentToEdit && (
+          <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-100 space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="flex items-center space-x-2">
+                  <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
+                    <Edit2 className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900">
+                    Edit Data Siswa
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setIsEditStudentOpen(false)}
+                  className="p-2 text-slate-400 hover:text-slate-600 rounded-xl"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleEditStudent} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase">
+                    Nama Lengkap Siswa *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editStudentName}
+                    onChange={(e) => setEditStudentName(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-sm font-semibold text-slate-900 focus:border-amber-500 focus:ring-0"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase">
+                    Nomor NISN (Opsional)
+                  </label>
+                  <input
+                    type="text"
+                    value={editStudentNisn}
+                    onChange={(e) => setEditStudentNisn(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-sm font-semibold text-slate-900 focus:border-amber-500 focus:ring-0"
+                  />
+                </div>
+                <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditStudentOpen(false)}
+                    className="px-5 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={editingStudent}
+                    className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-bold"
+                  >
+                    {editingStudent ? "Menyimpan..." : "Simpan Perubahan"}
                   </button>
                 </div>
               </form>
@@ -1258,7 +1382,6 @@ export default function TeacherAssessmentPage() {
 
                             <div className="space-y-3">
                               {indList.map((ind, iIdx) => {
-                                // SEMUA INDIKATOR KINI MENGGUNAKAN activeSubject BUKAN LAGI "Umum"
                                 const current = pointDetails[activeSubject]?.[
                                   ind.id
                                 ] || { score: 100, notes: "" };
@@ -1266,19 +1389,23 @@ export default function TeacherAssessmentPage() {
                                 return (
                                   <div
                                     key={ind.id}
-                                    className="bg-slate-50/50 p-4 rounded-xl border border-slate-200 space-y-3 hover:border-emerald-200 transition-colors"
+                                    className="bg-slate-50/80 p-3 sm:p-4 rounded-xl border border-slate-200 space-y-2.5 hover:border-emerald-300 transition-colors shadow-sm"
                                   >
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                      <div className="flex items-start space-x-3 pr-4">
-                                        <span className="w-6 h-6 shrink-0 bg-white border border-slate-200 text-slate-700 rounded-md flex items-center justify-center text-xs font-bold mt-0.5">
+                                    {/* BARIS 1: NAMA INDIKATOR (KIRI) & INPUT NILAI (KANAN) */}
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                                        <span className="w-6 h-6 shrink-0 bg-white border border-slate-200 text-slate-700 rounded-md flex items-center justify-center text-[11px] font-bold shadow-sm">
                                           {iIdx + 1}
                                         </span>
-                                        <span className="text-sm font-semibold text-slate-800 leading-snug">
+                                        <span
+                                          className="text-xs sm:text-sm font-bold text-slate-800 truncate"
+                                          title={ind.name}
+                                        >
                                           {ind.name}
                                         </span>
                                       </div>
 
-                                      <div className="flex items-center space-x-3 shrink-0">
+                                      <div className="shrink-0">
                                         <input
                                           type="number"
                                           min={0}
@@ -1287,52 +1414,56 @@ export default function TeacherAssessmentPage() {
                                           value={current.score}
                                           onChange={(e) =>
                                             handleScoreChange(
-                                              activeSubject, // SELALU GUNAKAN SUBJECT AKTIF
+                                              activeSubject,
                                               ind.id,
                                               e.target.value,
                                             )
                                           }
-                                          className="w-20 px-3 py-2 border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-900 bg-white focus:border-emerald-500 focus:ring-0 text-center transition-colors"
+                                          className="w-16 sm:w-20 px-2 py-1.5 border-2 border-slate-200 rounded-lg text-sm font-black text-emerald-900 bg-white focus:border-emerald-500 focus:ring-0 text-center transition-colors shadow-sm"
                                         />
-                                        <span className="text-xs font-bold w-24 text-right">
-                                          {current.score === "" ? (
-                                            <span className="text-slate-400">
-                                              -
-                                            </span>
-                                          ) : Number(current.score) >= 85 ? (
-                                            <span className="text-emerald-600">
-                                              Sangat Baik
-                                            </span>
-                                          ) : Number(current.score) >= 70 ? (
-                                            <span className="text-blue-600">
-                                              Baik
-                                            </span>
-                                          ) : (
-                                            <span className="text-amber-600">
-                                              Bimbingan
-                                            </span>
-                                          )}
-                                        </span>
                                       </div>
                                     </div>
 
-                                    <div className="relative mt-2">
-                                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                                        <MessageSquare className="w-4 h-4" />
+                                    {/* BARIS 2: KOTAK CATATAN (KIRI) & LABEL STATUS (KANAN) */}
+                                    <div className="flex items-center gap-2">
+                                      <div className="relative flex-1">
+                                        <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
+                                          <MessageSquare className="w-3.5 h-3.5" />
+                                        </div>
+                                        <input
+                                          type="text"
+                                          placeholder={`Catatan ${ind.name}...`}
+                                          value={current.notes}
+                                          onChange={(e) =>
+                                            handleNoteChange(
+                                              activeSubject,
+                                              ind.id,
+                                              e.target.value,
+                                            )
+                                          }
+                                          className="w-full pl-8 pr-3 py-1.5 text-xs sm:text-sm border border-slate-200 rounded-lg text-slate-700 bg-white focus:border-emerald-500 focus:ring-0 transition-colors shadow-sm"
+                                        />
                                       </div>
-                                      <input
-                                        type="text"
-                                        placeholder={`Ketik catatan untuk ${ind.name} (${activeSubject})...`}
-                                        value={current.notes}
-                                        onChange={(e) =>
-                                          handleNoteChange(
-                                            activeSubject, // SELALU GUNAKAN SUBJECT AKTIF
-                                            ind.id,
-                                            e.target.value,
-                                          )
-                                        }
-                                        className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 bg-white focus:border-emerald-500 focus:ring-0 transition-colors"
-                                      />
+
+                                      <div className="shrink-0 flex justify-end w-[85px] sm:w-[90px]">
+                                        {current.score === "" ? (
+                                          <span className="text-[10px] sm:text-xs font-bold text-slate-400 px-2 py-1 bg-slate-100 rounded-md border border-slate-200 text-center w-full">
+                                            -
+                                          </span>
+                                        ) : Number(current.score) >= 85 ? (
+                                          <span className="text-[10px] sm:text-xs font-bold text-emerald-700 px-2 py-1 bg-emerald-100 rounded-md border border-emerald-200 text-center w-full">
+                                            Sangat Baik
+                                          </span>
+                                        ) : Number(current.score) >= 70 ? (
+                                          <span className="text-[10px] sm:text-xs font-bold text-blue-700 px-2 py-1 bg-blue-100 rounded-md border border-blue-200 text-center w-full">
+                                            Baik
+                                          </span>
+                                        ) : (
+                                          <span className="text-[10px] sm:text-xs font-bold text-amber-700 px-2 py-1 bg-amber-100 rounded-md border border-amber-200 text-center w-full">
+                                            Bimbingan
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                 );
