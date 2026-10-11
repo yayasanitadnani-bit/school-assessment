@@ -53,7 +53,7 @@ type ScoreItem = {
   subject_name: string;
 };
 
-// PENGELOMPOKAN MATA PELAJARAN UNTUK DROPDOWN ORANG TUA
+// PENGELOMPOKAN MATA PELAJARAN
 const SUBJECT_GROUPS = {
   "Mata Pelajaran WALI KELAS": [
     "IPAS",
@@ -82,7 +82,6 @@ export default function ParentRekapPage() {
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
   const [selectedRombel, setSelectedRombel] = useState<Rombel | null>(null);
 
-  // Minggu aktif sekarang otomatis dihitung dari database
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
 
   const [students, setStudents] = useState<Student[]>([]);
@@ -94,7 +93,7 @@ export default function ParentRekapPage() {
   const [indicators, setIndicators] = useState<Indicator[]>([]);
   const [studentScores, setStudentScores] = useState<ScoreItem[]>([]);
 
-  // State untuk mapel yang sedang dilihat orang tua (Khusus Tugas)
+  // State untuk mapel yang sedang dilihat orang tua
   const [activeSubject, setActiveSubject] = useState<string>(SUBJECTS[0]);
 
   const [loadingInitial, setLoadingInitial] = useState(true);
@@ -103,7 +102,6 @@ export default function ParentRekapPage() {
 
   const supabase = createClient();
 
-  // MENGHITUNG KELAS & ROMBEL YANG TERSEDIA (Ini yang tadi terhapus!)
   const availableLevels = Array.from(new Set(rombels.map((r) => r.level))).sort(
     (a, b) => a - b,
   );
@@ -115,7 +113,6 @@ export default function ParentRekapPage() {
     const fetchInitialData = async () => {
       setLoadingInitial(true);
 
-      // Ambil Rombel & Siswa
       const { data: rombelData } = await supabase
         .from("rombels")
         .select("*")
@@ -136,7 +133,6 @@ export default function ParentRekapPage() {
         setRombels(rombelsWithCount);
       }
 
-      // Ambil Variabel, Kategori, Indikator
       const { data: varData } = await supabase
         .from("assessment_variables")
         .select("*");
@@ -151,7 +147,6 @@ export default function ParentRekapPage() {
       setCategories(catData || []);
       setIndicators(indData || []);
 
-      // Auto-deteksi Minggu ke Berapa Saat Ini
       const { data: activeAY } = await supabase
         .from("academic_years")
         .select("semester, name")
@@ -213,24 +208,26 @@ export default function ParentRekapPage() {
     s.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  // Pastikan mengubah format data dari Supabase menjadi murni Angka (Number)
   const scoresForWeek = studentScores.filter(
     (s) => Number(s.week_number) === Number(selectedWeek),
   );
 
-  const getScoreInfo = (indicatorId: number, subjectName: string) => {
+  // PERBAIKAN LOGIKA: Semua kategori wajib mengikuti activeSubject
+  const getScoreInfo = (indicatorId: number) => {
     const found = scoresForWeek.find(
       (s) =>
         Number(s.indicator_id) === Number(indicatorId) &&
-        (s.subject_name === subjectName ||
-          (!s.subject_name && subjectName === "Umum")),
+        (s.subject_name === activeSubject ||
+          (!s.subject_name && activeSubject === "IPAS")),
     );
+
     return {
       score: found ? Number(found.score) : null,
       notes: found ? found.notes : "",
     };
   };
 
+  // PERBAIKAN LOGIKA: Rata-rata per kategori wajib mengikuti activeSubject
   const getCategoryAverage = (catId: number) => {
     const indList = indicators.filter(
       (i) => Number(i.category_id) === Number(catId),
@@ -238,8 +235,12 @@ export default function ParentRekapPage() {
     if (indList.length === 0) return 0;
 
     const indIds = indList.map((i) => Number(i.id));
-    const relatedScores = scoresForWeek.filter((s) =>
-      indIds.includes(Number(s.indicator_id)),
+
+    const relatedScores = scoresForWeek.filter(
+      (s) =>
+        indIds.includes(Number(s.indicator_id)) &&
+        (s.subject_name === activeSubject ||
+          (!s.subject_name && activeSubject === "IPAS")),
     );
 
     if (relatedScores.length === 0) return 0;
@@ -262,13 +263,14 @@ export default function ParentRekapPage() {
   const scoreTugas = getCategoryScoreByName("Tugas");
   const scoreSikap = getCategoryScoreByName("Sikap");
 
-  const components = [scoreUH, scoreKehadiran, scoreTugas, scoreSikap].filter(
+  // Perhitungan Rata-Rata Komponen Harian / Disiplin (Hadir, Tugas, Sikap)
+  const dailyComponents = [scoreKehadiran, scoreTugas, scoreSikap].filter(
     (s) => s > 0,
   );
-  const sumScores = components.reduce((a, b) => a + b, 0);
-  const weeklyAverage =
-    components.length > 0
-      ? Number((sumScores / components.length).toFixed(1))
+  const dailySum = dailyComponents.reduce((a, b) => a + b, 0);
+  const dailyAverage =
+    dailyComponents.length > 0
+      ? Number((dailySum / dailyComponents.length).toFixed(1))
       : 0;
 
   const getStatusLabel = (score: number) => {
@@ -462,7 +464,7 @@ export default function ParentRekapPage() {
                   {selectedStudent.name}
                 </h3>
                 <p className="text-sm text-slate-500 mt-1">
-                  NISN: {selectedStudent.nisn} • {selectedRombel?.name}
+                  NISN: {selectedStudent.nisn} | Rombel: {selectedRombel?.name}
                 </p>
               </div>
 
@@ -493,104 +495,105 @@ export default function ParentRekapPage() {
               </div>
             ) : (
               <div className="space-y-8">
-                {/* KOTAK RINGKASAN */}
+                {/* PILIHAN MATA PELAJARAN */}
+                <div className="bg-emerald-50/60 p-5 rounded-2xl border border-emerald-200 space-y-2 shadow-sm">
+                  <label className="text-xs font-extrabold text-emerald-800 uppercase flex items-center gap-2">
+                    <BookMarked className="w-4 h-4 text-emerald-600" />
+                    Mata Pelajaran yang Sedang Dilihat Rapornya:
+                  </label>
+                  <select
+                    value={activeSubject}
+                    onChange={(e) => setActiveSubject(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-emerald-300 rounded-xl text-sm font-bold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-sm"
+                  >
+                    {Object.entries(SUBJECT_GROUPS).map(
+                      ([groupName, subjects]) => (
+                        <optgroup
+                          key={groupName}
+                          label={groupName}
+                          className="font-bold text-slate-400 bg-white"
+                        >
+                          {subjects.map((sub) => (
+                            <option
+                              key={sub}
+                              value={sub}
+                              className="font-semibold text-slate-800"
+                            >
+                              {sub}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ),
+                    )}
+                  </select>
+                </div>
+
+                {/* KOTAK RINGKASAN PERKEMBANGAN (PERSIS SEPERTI HALAMAN GURU) */}
                 <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 space-y-4 shadow-sm">
                   <div>
                     <h4 className="text-base font-bold text-slate-800">
-                      Ringkasan Perkembangan
+                      Ringkasan Perkembangan (Mapel: {activeSubject})
                     </h4>
                     <p className="text-xs text-slate-500 mt-1">
-                      Rata-rata nilai pada minggu ke-{selectedWeek}. *(Rata-rata
-                      Tugas dihitung dari akumulasi semua Mapel)*
+                      Rata-rata nilai pada minggu ke-{selectedWeek} untuk mata
+                      pelajaran {activeSubject}.
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-                    <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200 flex flex-col justify-between">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Kotak Kiri: Ulangan Harian (UH) */}
+                    <div className="bg-amber-50/30 border border-amber-200 rounded-2xl p-5 flex items-center justify-between">
                       <div>
-                        <span className="text-3xl font-black text-slate-900">
-                          {scoreUH || "-"}
+                        <span className="text-xs font-bold text-amber-800 uppercase tracking-wider block">
+                          Nilai Ulangan Harian
                         </span>
-                        <span className="text-xs font-bold text-slate-700 block mt-1">
-                          UH
-                        </span>
-                      </div>
-                      <div className="mt-3">
-                        <span
-                          className={`text-[11px] font-bold px-2.5 py-1 rounded-md ${getStatusColor(scoreUH)}`}
-                        >
-                          {getStatusLabel(scoreUH)}
+                        <span className="text-xs text-slate-500 block mt-0.5">
+                          Rata-rata dari seluruh UH
                         </span>
                       </div>
+                      <span className="text-4xl font-black text-amber-700">
+                        {scoreUH || "-"}
+                      </span>
                     </div>
 
-                    <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200 flex flex-col justify-between">
-                      <div>
-                        <span className="text-3xl font-black text-slate-900">
-                          {scoreKehadiran || "-"}
-                        </span>
-                        <span className="text-xs font-bold text-slate-700 block mt-1">
-                          Kehadiran
-                        </span>
-                      </div>
-                      <div className="mt-3">
-                        <span
-                          className={`text-[11px] font-bold px-2.5 py-1 rounded-md ${getStatusColor(scoreKehadiran)}`}
-                        >
-                          {getStatusLabel(scoreKehadiran)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200 flex flex-col justify-between">
-                      <div>
-                        <span className="text-3xl font-black text-slate-900">
-                          {scoreTugas || "-"}
-                        </span>
-                        <span className="text-xs font-bold text-slate-700 block mt-1">
-                          Tugas (Akumulasi)
-                        </span>
-                      </div>
-                      <div className="mt-3">
-                        <span
-                          className={`text-[11px] font-bold px-2.5 py-1 rounded-md ${getStatusColor(scoreTugas)}`}
-                        >
-                          {getStatusLabel(scoreTugas)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200 flex flex-col justify-between">
-                      <div>
-                        <span className="text-3xl font-black text-slate-900">
-                          {scoreSikap || "-"}
-                        </span>
-                        <span className="text-xs font-bold text-slate-700 block mt-1">
-                          Sikap
-                        </span>
-                      </div>
-                      <div className="mt-3">
-                        <span
-                          className={`text-[11px] font-bold px-2.5 py-1 rounded-md ${getStatusColor(scoreSikap)}`}
-                        >
-                          {getStatusLabel(scoreSikap)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200 flex flex-col justify-between sm:col-span-2 lg:col-span-1 shadow-sm">
-                      <div>
-                        <span className="text-3xl font-black text-emerald-700">
-                          {weeklyAverage || "-"}
-                        </span>
-                        <span className="text-xs font-bold text-emerald-900 block mt-1">
-                          Rata-Rata
-                        </span>
-                      </div>
-                      <div className="mt-3">
-                        <span className="text-[11px] font-bold px-2.5 py-1 rounded-md bg-emerald-600 text-white">
-                          Pekan Ini
-                        </span>
+                    {/* Kotak Kanan: Komponen Harian / Disiplin */}
+                    <div className="bg-emerald-50/20 border border-emerald-200 rounded-2xl p-4 flex flex-col justify-between">
+                      <span className="text-[11px] font-extrabold text-emerald-800 uppercase tracking-wider block mb-3">
+                        Komponen Harian / Disiplin
+                      </span>
+                      <div className="grid grid-cols-4 gap-2 text-center">
+                        <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                          <span className="text-lg font-black text-slate-800">
+                            {scoreKehadiran || "-"}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-500 mt-1">
+                            Hadir
+                          </span>
+                        </div>
+                        <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                          <span className="text-lg font-black text-slate-800">
+                            {scoreTugas || "-"}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-500 mt-1">
+                            Tugas
+                          </span>
+                        </div>
+                        <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                          <span className="text-lg font-black text-slate-800">
+                            {scoreSikap || "-"}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-500 mt-1">
+                            Sikap
+                          </span>
+                        </div>
+                        <div className="bg-emerald-600 text-white p-2.5 rounded-xl shadow-sm flex flex-col justify-between">
+                          <span className="text-lg font-black">
+                            {dailyAverage || "-"}
+                          </span>
+                          <span className="text-[10px] font-bold text-emerald-100 mt-1">
+                            Hasil
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -599,50 +602,9 @@ export default function ParentRekapPage() {
                 <div className="flex items-center space-x-2 pt-4 border-t border-slate-100">
                   <Award className="w-5 h-5 text-emerald-600" />
                   <h4 className="text-base font-bold text-slate-800">
-                    Rincian Indikator Minggu ke-{selectedWeek}
+                    Rincian Indikator Minggu ke-{selectedWeek} ({activeSubject})
                   </h4>
                 </div>
-
-                {/* PERINGATAN JIKA VARIABEL KOSONG KARENA TERBLOKIR SUPABASE RLS */}
-                {variables.length === 0 && !loadingInitial && (
-                  <div className="bg-amber-50 border border-amber-200 text-amber-800 p-5 rounded-2xl flex flex-col items-center justify-center text-center space-y-3">
-                    <AlertTriangle className="w-8 h-8 text-amber-500" />
-                    <div className="text-sm font-medium">
-                      <p className="font-bold text-base mb-1">
-                        Rincian Variabel Terblokir Sistem (Kosong)
-                      </p>
-                      <p>
-                        Jika data nilai tidak muncul di sini, itu karena tabel
-                        database Anda di Supabase saat ini dikunci. Masuk ke
-                        dashboard{" "}
-                        <b>
-                          Supabase {">"} Authentication {">"} Policies
-                        </b>
-                        , lalu buat aturan{" "}
-                        <i>"Enable read access for all users"</i> (Aktifkan
-                        Publik) untuk tabel:
-                        <br />
-                        <br />
-                        <code className="bg-white px-2 py-1 rounded border border-amber-300 text-xs">
-                          assessment_variables
-                        </code>
-                        ,
-                        <code className="bg-white px-2 py-1 rounded border border-amber-300 text-xs ml-1">
-                          assessment_categories
-                        </code>
-                        ,
-                        <code className="bg-white px-2 py-1 rounded border border-amber-300 text-xs ml-1">
-                          assessment_indicators
-                        </code>
-                        , dan
-                        <code className="bg-white px-2 py-1 rounded border border-amber-300 text-xs ml-1">
-                          assessment_points
-                        </code>
-                        .
-                      </p>
-                    </div>
-                  </div>
-                )}
 
                 <div className="space-y-6">
                   {variables.map((variable) => {
@@ -670,9 +632,6 @@ export default function ParentRekapPage() {
                             if (indList.length === 0) return null;
 
                             const catAvg = getCategoryAverage(cat.id);
-                            const isTugas = cat.name
-                              .toUpperCase()
-                              .includes("TUGAS");
 
                             return (
                               <div
@@ -709,57 +668,9 @@ export default function ParentRekapPage() {
                                   </div>
                                 </div>
 
-                                {isTugas && (
-                                  <div className="space-y-2 pt-4 pb-1">
-                                    <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                                      <BookMarked className="w-4 h-4 text-emerald-600" />{" "}
-                                      Pilih Mata Pelajaran:
-                                    </label>
-                                    <select
-                                      value={activeSubject}
-                                      onChange={(e) =>
-                                        setActiveSubject(e.target.value)
-                                      }
-                                      className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 bg-slate-50 hover:bg-white focus:border-emerald-500 focus:ring-0 transition-colors cursor-pointer appearance-none shadow-sm"
-                                      style={{
-                                        backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                                        backgroundPosition: `right 0.75rem center`,
-                                        backgroundRepeat: `no-repeat`,
-                                        backgroundSize: `1.5em 1.5em`,
-                                      }}
-                                    >
-                                      {Object.entries(SUBJECT_GROUPS).map(
-                                        ([groupName, subjects]) => (
-                                          <optgroup
-                                            key={groupName}
-                                            label={groupName}
-                                            className="font-bold text-slate-400 bg-white"
-                                          >
-                                            {subjects.map((sub) => (
-                                              <option
-                                                key={sub}
-                                                value={sub}
-                                                className="font-semibold text-slate-800"
-                                              >
-                                                {sub}
-                                              </option>
-                                            ))}
-                                          </optgroup>
-                                        ),
-                                      )}
-                                    </select>
-                                  </div>
-                                )}
-
                                 <div className="space-y-2 mt-4">
                                   {indList.map((ind, iIdx) => {
-                                    const targetSub = isTugas
-                                      ? activeSubject
-                                      : "Umum";
-                                    const info = getScoreInfo(
-                                      ind.id,
-                                      targetSub,
-                                    );
+                                    const info = getScoreInfo(ind.id);
 
                                     return (
                                       <div

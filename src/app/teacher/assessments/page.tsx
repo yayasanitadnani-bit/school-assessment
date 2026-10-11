@@ -132,7 +132,35 @@ export default function TeacherAssessmentPage() {
 
   const supabase = createClient();
   const router = useRouter();
+  useEffect(() => {
+    // Jika masih di menu awal (Langkah 1), biarkan tombol back HP bekerja normal
+    if (step === 1) return;
 
+    // Tambahkan history "palsu" ke browser
+    window.history.pushState(null, "", window.location.href);
+
+    const handleBackButton = () => {
+      // Atur urutan mundur berdasarkan posisi step saat ini
+      if (step === 4) {
+        setStep(3);
+        setSelectedStudent(null);
+      } else if (step === 3) {
+        setStep(2);
+        setSelectedRombel("");
+      } else if (step === 2) {
+        setStep(1);
+        setSelectedLevel(null);
+      }
+    };
+
+    // Dengarkan saat tombol back di HP ditekan
+    window.addEventListener("popstate", handleBackButton);
+
+    // Bersihkan listener saat step berubah
+    return () => {
+      window.removeEventListener("popstate", handleBackButton);
+    };
+  }, [step]);
   // Ambil data awal
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -260,7 +288,6 @@ export default function TeacherAssessmentPage() {
     }
   };
 
-  // Fungsi Tambah UH Baru Secara Dinamis
   const handleAddUHIndicator = async (categoryId: number) => {
     const catIndicators = indicators.filter(
       (i) => i.category_id === categoryId,
@@ -281,7 +308,6 @@ export default function TeacherAssessmentPage() {
 
     if (inserted) {
       setIndicators((prev) => [...prev, inserted]);
-      // Inisialisasi default 100 untuk indikator baru
       setPointDetails((prev) => {
         const updated = { ...prev };
         Object.keys(updated).forEach((sub) => {
@@ -314,23 +340,12 @@ export default function TeacherAssessmentPage() {
         detailsMap[sub] = {};
       });
 
-      categories.forEach((cat) => {
-        const isTugasOrUH =
-          cat.name.toUpperCase().includes("TUGAS") ||
-          cat.name.toUpperCase().includes("UH");
-        const catIndicators = indicators.filter(
-          (i) => i.category_id === cat.id,
-        );
-
-        catIndicators.forEach((ind) => {
-          if (isTugasOrUH) {
-            SUBJECTS.forEach((sub) => {
-              detailsMap[sub][ind.id] = { score: 100, notes: "" };
-            });
-          } else {
-            detailsMap["Umum"][ind.id] = { score: 100, notes: "" };
-          }
+      // Siapkan wadah nilai untuk SEMUA indikator di SETIAP mapel
+      indicators.forEach((ind) => {
+        SUBJECTS.forEach((sub) => {
+          detailsMap[sub][ind.id] = { score: 100, notes: "" };
         });
+        detailsMap["Umum"][ind.id] = { score: 100, notes: "" };
       });
 
       if (existingScores) {
@@ -378,43 +393,92 @@ export default function TeacherAssessmentPage() {
     };
   };
 
-  const getPreviewCategoryAverage = (catId: number) => {
+  const getPreviewCategoryAverage = (catId: number, subjectName: string) => {
     const indList = indicators.filter(
       (i) => Number(i.category_id) === Number(catId),
     );
     if (indList.length === 0) return 0;
     const indIds = indList.map((i) => Number(i.id));
-    const relatedScores = previewScoresForWeek.filter((s) =>
-      indIds.includes(Number(s.indicator_id)),
+    const relatedScores = previewScoresForWeek.filter(
+      (s) =>
+        indIds.includes(Number(s.indicator_id)) &&
+        (s.subject_name === subjectName ||
+          (!s.subject_name && subjectName === "Umum")),
     );
     if (relatedScores.length === 0) return 0;
     const total = relatedScores.reduce((sum, s) => sum + Number(s.score), 0);
     return Math.round((total / relatedScores.length) * 10) / 10;
   };
 
-  const getPreviewCategoryScoreByName = (nameKeyword: string) => {
+  const getPreviewCategoryScoreByName = (
+    nameKeyword: string,
+    subjectName: string,
+  ) => {
     const matchedCat = categories.find(
       (c) => c.name.trim().toLowerCase() === nameKeyword.trim().toLowerCase(),
     );
     if (!matchedCat) return 0;
-    return getPreviewCategoryAverage(Number(matchedCat.id));
+    return getPreviewCategoryAverage(Number(matchedCat.id), subjectName);
   };
 
-  const pUH =
-    getPreviewCategoryScoreByName("UH") ||
-    getPreviewCategoryScoreByName("Ulangan Harian");
+  // --- PERHITUNGAN NILAI BARU (UH TERPISAH) ---
+  const getPreviewUHScore = (subjectName: string) => {
+    const uhCat = categories.find(
+      (c) =>
+        c.name.trim().toUpperCase() === "UH" ||
+        c.name.trim().toUpperCase().includes("ULANGAN"),
+    );
+    if (!uhCat) return 0;
+
+    const indList = indicators.filter(
+      (i) => Number(i.category_id) === Number(uhCat.id),
+    );
+    if (indList.length === 0) return 0;
+
+    const indIds = indList.map((i) => Number(i.id));
+    const relatedScores = previewScoresForWeek.filter(
+      (s) =>
+        indIds.includes(Number(s.indicator_id)) &&
+        (s.subject_name === subjectName ||
+          (!s.subject_name && subjectName === "Umum")),
+    );
+
+    if (relatedScores.length === 0) return 0;
+    const total = relatedScores.reduce((sum, s) => sum + Number(s.score), 0);
+    return Math.round((total / relatedScores.length) * 10) / 10;
+  };
+
+  const getPreviewCategoryAverageByName = (
+    nameKeyword: string,
+    subjectName: string,
+  ) => {
+    const matchedCat = categories.find(
+      (c) => c.name.trim().toLowerCase() === nameKeyword.trim().toLowerCase(),
+    );
+    if (!matchedCat) return 0;
+    return getPreviewCategoryAverage(Number(matchedCat.id), subjectName);
+  };
+
+  // Nilai UH dihitung tersendiri (rata-rata dari semua UH yang ada)
+  const pUH = getPreviewUHScore(previewActiveSubject);
+
+  // Komponen harian murni (Kehadiran + Tugas + Sikap) dibagi 3
   const pKehadiran =
-    getPreviewCategoryScoreByName("Kehadiran") ||
-    getPreviewCategoryScoreByName("Absensi");
-  const pTugas = getPreviewCategoryScoreByName("Tugas");
-  const pSikap = getPreviewCategoryScoreByName("Sikap");
-  const pComponents = [pUH, pKehadiran, pTugas, pSikap].filter((s) => s > 0);
+    getPreviewCategoryAverageByName("Kehadiran", previewActiveSubject) ||
+    getPreviewCategoryAverageByName("Absensi", previewActiveSubject);
+  const pTugas = getPreviewCategoryAverageByName("Tugas", previewActiveSubject);
+  const pSikap = getPreviewCategoryAverageByName("Sikap", previewActiveSubject);
+
+  const harianComponents = [pKehadiran, pTugas, pSikap].filter((s) => s > 0);
+
+  // Rata-Rata murni dari harian saja
   const pWeeklyAvg =
-    pComponents.length > 0
+    harianComponents.length > 0
       ? Number(
-          (pComponents.reduce((a, b) => a + b, 0) / pComponents.length).toFixed(
-            1,
-          ),
+          (
+            harianComponents.reduce((a, b) => a + b, 0) /
+            harianComponents.length
+          ).toFixed(1),
         )
       : 0;
 
@@ -476,46 +540,22 @@ export default function TeacherAssessmentPage() {
     try {
       const upsertData: any[] = [];
 
-      categories.forEach((cat) => {
-        const isTugasOrUH =
-          cat.name.toUpperCase().includes("TUGAS") ||
-          cat.name.toUpperCase().includes("UH");
-        const catIndicators = indicators.filter(
-          (i) => i.category_id === cat.id,
-        );
-
-        catIndicators.forEach((ind) => {
-          if (isTugasOrUH) {
-            SUBJECTS.forEach((sub) => {
-              const current = pointDetails[sub]?.[ind.id];
-              upsertData.push({
-                student_id: selectedStudent.id,
-                indicator_id: ind.id,
-                rombel_id: parseInt(selectedRombel),
-                week_number: weekNumber,
-                subject_name: sub,
-                score:
-                  current?.score === "" || current?.score === undefined
-                    ? 100
-                    : current.score,
-                notes: current?.notes || "",
-              });
-            });
-          } else {
-            const current = pointDetails["Umum"]?.[ind.id];
-            upsertData.push({
-              student_id: selectedStudent.id,
-              indicator_id: ind.id,
-              rombel_id: parseInt(selectedRombel),
-              week_number: weekNumber,
-              subject_name: "Umum",
-              score:
-                current?.score === "" || current?.score === undefined
-                  ? 100
-                  : current.score,
-              notes: current?.notes || "",
-            });
-          }
+      // Simpan SEMUA indikator untuk SEMUA mata pelajaran
+      indicators.forEach((ind) => {
+        SUBJECTS.forEach((sub) => {
+          const current = pointDetails[sub]?.[ind.id];
+          upsertData.push({
+            student_id: selectedStudent.id,
+            indicator_id: ind.id,
+            rombel_id: parseInt(selectedRombel),
+            week_number: weekNumber,
+            subject_name: sub,
+            score:
+              current?.score === "" || current?.score === undefined
+                ? 100
+                : current.score,
+            notes: current?.notes || "",
+          });
         });
       });
 
@@ -872,7 +912,7 @@ export default function TeacherAssessmentPage() {
         {isPreviewOpen && selectedStudent && (
           <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
             <div className="bg-white w-full max-w-3xl rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-6 my-8 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between border-b border-slate-100 pb-4 gap-4">
                 <div>
                   <span className="text-xs font-black text-emerald-600 uppercase tracking-widest">
                     Pratinjau Rapor Siswa
@@ -881,61 +921,103 @@ export default function TeacherAssessmentPage() {
                     {selectedStudent.name}
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Minggu Ke-{weekNumber} • {activeRombelName}
+                    Minggu Ke-{weekNumber} - {activeRombelName}
                   </p>
                 </div>
+
+                {/* DROPDOWN MAPEL PINDAH KE ATAS PREVIEW AGAR TERLIHAT JELAS */}
+                <div className="w-full sm:w-auto bg-slate-50 p-2 rounded-xl border border-slate-200 flex items-center gap-2">
+                  <BookMarked className="w-4 h-4 text-slate-400 ml-2" />
+                  <select
+                    value={previewActiveSubject}
+                    onChange={(e) => setPreviewActiveSubject(e.target.value)}
+                    className="w-full sm:w-48 px-2 py-1.5 bg-transparent border-none text-sm font-bold text-slate-700 focus:ring-0 cursor-pointer"
+                  >
+                    {Object.entries(SUBJECT_GROUPS).map(
+                      ([groupName, subjects]) => (
+                        <optgroup key={groupName} label={groupName}>
+                          {subjects.map((sub) => (
+                            <option key={sub} value={sub}>
+                              {sub}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ),
+                    )}
+                  </select>
+                </div>
+
                 <button
                   onClick={() => setIsPreviewOpen(false)}
-                  className="p-2 text-slate-400 hover:text-slate-600 rounded-xl"
+                  className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-600 rounded-xl sm:static"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 space-y-3 shadow-sm">
+              <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 space-y-4 shadow-sm">
                 <h4 className="text-sm font-bold text-slate-800">
-                  Ringkasan Perkembangan
+                  Ringkasan Perkembangan (Mapel: {previewActiveSubject})
                 </h4>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-                  <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
-                    <span className="text-2xl font-black text-slate-900">
-                      {pUH || "-"}
-                    </span>
-                    <span className="text-[11px] font-bold text-slate-600 block mt-0.5">
-                      UH
-                    </span>
+
+                {/* --- KITA PISAH JADI 2 KELOMPOK SUPAYA TIDAK DISANGKA DIGABUNG --- */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* KELOMPOK 1: ULANGAN HARIAN (BERDIRI SENDIRI) */}
+                  <div className="bg-amber-50/50 rounded-2xl p-4 border border-amber-200/60 flex items-center justify-between">
+                    <div>
+                      <span className="text-[11px] font-extrabold text-amber-800 uppercase tracking-wider block mb-0.5">
+                        Nilai Ulangan Harian
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        Rata-rata dari seluruh UH
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-2xl font-black text-amber-700">
+                        {pUH || "-"}
+                      </span>
+                    </div>
                   </div>
-                  <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
-                    <span className="text-2xl font-black text-slate-900">
-                      {pKehadiran || "-"}
+
+                  {/* KELOMPOK 2: KOMPONEN HARIAN & RATA-RATA UTAMA */}
+                  <div className="bg-emerald-50/30 rounded-2xl p-4 border border-emerald-200/60 space-y-3">
+                    <span className="text-[11px] font-extrabold text-emerald-900 uppercase tracking-wider block">
+                      Komponen Harian / Disiplin
                     </span>
-                    <span className="text-[11px] font-bold text-slate-600 block mt-0.5">
-                      Kehadiran
-                    </span>
-                  </div>
-                  <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
-                    <span className="text-2xl font-black text-slate-900">
-                      {pTugas || "-"}
-                    </span>
-                    <span className="text-[11px] font-bold text-slate-600 block mt-0.5">
-                      Tugas
-                    </span>
-                  </div>
-                  <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
-                    <span className="text-2xl font-black text-slate-900">
-                      {pSikap || "-"}
-                    </span>
-                    <span className="text-[11px] font-bold text-slate-600 block mt-0.5">
-                      Sikap
-                    </span>
-                  </div>
-                  <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-200 col-span-2 sm:col-span-1">
-                    <span className="text-2xl font-black text-emerald-700">
-                      {pWeeklyAvg || "-"}
-                    </span>
-                    <span className="text-[11px] font-bold text-emerald-900 block mt-0.5">
-                      Rata-Rata
-                    </span>
+                    <div className="grid grid-cols-4 gap-2 text-center">
+                      <div className="bg-white rounded-xl p-2 border border-slate-200">
+                        <span className="text-base font-black text-slate-900 block">
+                          {pKehadiran || "-"}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-bold">
+                          Hadir
+                        </span>
+                      </div>
+                      <div className="bg-white rounded-xl p-2 border border-slate-200">
+                        <span className="text-base font-black text-slate-900 block">
+                          {pTugas || "-"}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-bold">
+                          Tugas
+                        </span>
+                      </div>
+                      <div className="bg-white rounded-xl p-2 border border-slate-200">
+                        <span className="text-base font-black text-slate-900 block">
+                          {pSikap || "-"}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-bold">
+                          Sikap
+                        </span>
+                      </div>
+                      <div className="bg-emerald-600 text-white rounded-xl p-2 shadow-sm">
+                        <span className="text-base font-black block">
+                          {pWeeklyAvg || "-"}
+                        </span>
+                        <span className="text-[10px] font-bold opacity-90">
+                          Hasil
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -971,10 +1053,10 @@ export default function TeacherAssessmentPage() {
                             );
                             if (indList.length === 0) return null;
 
-                            const catAvg = getPreviewCategoryAverage(cat.id);
-                            const isTugas = cat.name
-                              .toUpperCase()
-                              .includes("TUGAS");
+                            const catAvg = getPreviewCategoryAverage(
+                              cat.id,
+                              previewActiveSubject,
+                            );
 
                             return (
                               <div
@@ -990,60 +1072,39 @@ export default function TeacherAssessmentPage() {
                                   </span>
                                 </div>
 
-                                {isTugas && (
-                                  <div className="space-y-1.5 pt-1">
-                                    <label className="text-xs font-bold text-slate-700">
-                                      Pilih Mapel Preview:
-                                    </label>
-                                    <select
-                                      value={previewActiveSubject}
-                                      onChange={(e) =>
-                                        setPreviewActiveSubject(e.target.value)
-                                      }
-                                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 bg-slate-50 cursor-pointer"
-                                    >
-                                      {Object.entries(SUBJECT_GROUPS).map(
-                                        ([groupName, subjects]) => (
-                                          <optgroup
-                                            key={groupName}
-                                            label={groupName}
-                                          >
-                                            {subjects.map((sub) => (
-                                              <option key={sub} value={sub}>
-                                                {sub}
-                                              </option>
-                                            ))}
-                                          </optgroup>
-                                        ),
-                                      )}
-                                    </select>
-                                  </div>
-                                )}
-
                                 <div className="space-y-2 mt-2">
                                   {indList.map((ind, iIdx) => {
-                                    const targetSub = isTugas
-                                      ? previewActiveSubject
-                                      : "Umum";
                                     const info = getPreviewScoreInfo(
                                       ind.id,
-                                      targetSub,
+                                      previewActiveSubject,
                                     );
 
                                     return (
                                       <div
                                         key={ind.id}
-                                        className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 flex items-center justify-between text-xs"
+                                        className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex flex-col gap-1.5 text-xs"
                                       >
-                                        <span className="font-medium text-slate-800">
-                                          {iIdx + 1}. {ind.name}
-                                        </span>
-                                        <span className="font-bold text-slate-900 bg-white px-3 py-1 rounded border border-slate-200">
-                                          Nilai:{" "}
-                                          {info.score !== null
-                                            ? info.score
-                                            : "-"}
-                                        </span>
+                                        <div className="flex items-center justify-between">
+                                          <span className="font-medium text-slate-800">
+                                            {iIdx + 1}. {ind.name}
+                                          </span>
+                                          <span className="font-bold text-slate-900 bg-white px-3 py-1 rounded border border-slate-200">
+                                            Nilai:{" "}
+                                            {info.score !== null
+                                              ? info.score
+                                              : "-"}
+                                          </span>
+                                        </div>
+
+                                        {/* Menampilkan deskripsi/catatan jika diisi */}
+                                        {info.notes && (
+                                          <p className="text-[11px] text-slate-500 italic bg-white/80 px-2.5 py-1 rounded border border-slate-100 flex items-center gap-1.5">
+                                            <span className="font-bold not-italic text-emerald-600">
+                                              Catatan:
+                                            </span>{" "}
+                                            {info.notes}
+                                          </p>
+                                        )}
                                       </div>
                                     );
                                   })}
@@ -1102,7 +1163,45 @@ export default function TeacherAssessmentPage() {
               </div>
             </div>
 
-            <div className="space-y-8 pt-4">
+            {/* --- DROPDOWN MAPEL GLOBAL (Pindah Ke Sini) --- */}
+            <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-2xl shadow-sm mb-4">
+              <label className="text-sm font-extrabold text-emerald-900 flex items-center gap-2 mb-2.5">
+                <BookMarked className="w-5 h-5 text-emerald-600" />
+                Mata Pelajaran yang Sedang Dinilai:
+              </label>
+              <select
+                value={activeSubject}
+                onChange={(e) => setActiveSubject(e.target.value)}
+                className="w-full sm:max-w-md px-4 py-3.5 border-2 border-emerald-200 rounded-xl text-sm font-bold text-slate-800 bg-white hover:bg-slate-50 focus:border-emerald-500 focus:ring-0 transition-colors cursor-pointer shadow-sm appearance-none"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23059669' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                  backgroundPosition: `right 1rem center`,
+                  backgroundRepeat: `no-repeat`,
+                  backgroundSize: `1.5em 1.5em`,
+                }}
+              >
+                {Object.entries(SUBJECT_GROUPS).map(([groupName, subjects]) => (
+                  <optgroup
+                    key={groupName}
+                    label={groupName}
+                    className="font-bold text-slate-400 bg-white"
+                  >
+                    {subjects.map((sub) => (
+                      <option
+                        key={sub}
+                        value={sub}
+                        className="font-semibold text-slate-800"
+                      >
+                        {sub}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+            {/* ---------------------------------------------- */}
+
+            <div className="space-y-8 pt-2">
               {variables.map((variable) => {
                 const catList = categories.filter(
                   (c) => c.variable_id === variable.id,
@@ -1127,9 +1226,6 @@ export default function TeacherAssessmentPage() {
                         );
                         if (indList.length === 0) return null;
 
-                        const isTugas = cat.name
-                          .toUpperCase()
-                          .includes("TUGAS");
                         const isUH =
                           cat.name.toUpperCase().includes("UH") ||
                           cat.name.toUpperCase().includes("ULANGAN");
@@ -1146,12 +1242,8 @@ export default function TeacherAssessmentPage() {
                                   {cat.name}
                                 </h4>
                               </div>
+
                               <div className="flex items-center gap-2">
-                                {isTugas && (
-                                  <span className="text-[11px] bg-emerald-100 text-emerald-800 font-bold px-3 py-1 rounded-full whitespace-nowrap">
-                                    Mapel Aktif: {activeSubject}
-                                  </span>
-                                )}
                                 {/* TOMBOL TAMBAH UH KHUSUS DI KATEGORI UH */}
                                 {isUH && (
                                   <button
@@ -1164,55 +1256,10 @@ export default function TeacherAssessmentPage() {
                               </div>
                             </div>
 
-                            {/* DROPDOWN MAPEL */}
-                            {isTugas && (
-                              <div className="space-y-2 pt-2 pb-2">
-                                <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                                  <BookMarked className="w-4 h-4 text-emerald-600" />{" "}
-                                  Pilih Mata Pelajaran:
-                                </label>
-                                <select
-                                  value={activeSubject}
-                                  onChange={(e) =>
-                                    setActiveSubject(e.target.value)
-                                  }
-                                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 bg-slate-50 hover:bg-white focus:border-emerald-500 focus:ring-0 transition-colors cursor-pointer appearance-none shadow-sm"
-                                  style={{
-                                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                                    backgroundPosition: `right 0.75rem center`,
-                                    backgroundRepeat: `no-repeat`,
-                                    backgroundSize: `1.5em 1.5em`,
-                                  }}
-                                >
-                                  {Object.entries(SUBJECT_GROUPS).map(
-                                    ([groupName, subjects]) => (
-                                      <optgroup
-                                        key={groupName}
-                                        label={groupName}
-                                        className="font-bold text-slate-400 bg-white"
-                                      >
-                                        {subjects.map((sub) => (
-                                          <option
-                                            key={sub}
-                                            value={sub}
-                                            className="font-semibold text-slate-800"
-                                          >
-                                            {sub}
-                                          </option>
-                                        ))}
-                                      </optgroup>
-                                    ),
-                                  )}
-                                </select>
-                              </div>
-                            )}
-
                             <div className="space-y-3">
                               {indList.map((ind, iIdx) => {
-                                const targetSub = isTugas
-                                  ? activeSubject
-                                  : "Umum";
-                                const current = pointDetails[targetSub]?.[
+                                // SEMUA INDIKATOR KINI MENGGUNAKAN activeSubject BUKAN LAGI "Umum"
+                                const current = pointDetails[activeSubject]?.[
                                   ind.id
                                 ] || { score: 100, notes: "" };
 
@@ -1240,7 +1287,7 @@ export default function TeacherAssessmentPage() {
                                           value={current.score}
                                           onChange={(e) =>
                                             handleScoreChange(
-                                              targetSub,
+                                              activeSubject, // SELALU GUNAKAN SUBJECT AKTIF
                                               ind.id,
                                               e.target.value,
                                             )
@@ -1275,11 +1322,11 @@ export default function TeacherAssessmentPage() {
                                       </div>
                                       <input
                                         type="text"
-                                        placeholder={`Ketik catatan untuk ${ind.name}${isTugas ? ` (${targetSub})` : ""}...`}
+                                        placeholder={`Ketik catatan untuk ${ind.name} (${activeSubject})...`}
                                         value={current.notes}
                                         onChange={(e) =>
                                           handleNoteChange(
-                                            targetSub,
+                                            activeSubject, // SELALU GUNAKAN SUBJECT AKTIF
                                             ind.id,
                                             e.target.value,
                                           )

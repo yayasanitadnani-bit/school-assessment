@@ -23,6 +23,29 @@ type Student = {
   nisn: string;
 };
 
+const SUBJECT_GROUPS = {
+  "Mata Pelajaran WALI KELAS": [
+    "IPAS",
+    "PKN",
+    "BHS INDONESIA",
+    "SBMN",
+    "SB DP",
+  ],
+  "Mata Pelajaran Bid. Study": [
+    "PAI",
+    "BHS INGGRIS",
+    "PJOK",
+    "TIK",
+    "MATEMATIKA",
+    "BHS ARAB",
+  ],
+};
+
+const SUBJECTS = [
+  ...SUBJECT_GROUPS["Mata Pelajaran WALI KELAS"],
+  ...SUBJECT_GROUPS["Mata Pelajaran Bid. Study"],
+];
+
 export default function ExportRekapPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -31,10 +54,9 @@ export default function ExportRekapPage() {
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
   const [selectedRombel, setSelectedRombel] = useState<Rombel | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
-  const [selectedStudentId, setSelectedStudentId] = useState<string>("all"); // "all" atau ID siswa spesifik
+  const [selectedStudentId, setSelectedStudentId] = useState<string>("all");
   const [loading, setLoading] = useState(false);
 
-  // Ambil data rombel saat pertama load
   useEffect(() => {
     const fetchRombels = async () => {
       const { data } = await supabase
@@ -46,7 +68,6 @@ export default function ExportRekapPage() {
     fetchRombels();
   }, []);
 
-  // Ambil data siswa saat rombel dipilih
   useEffect(() => {
     if (!selectedRombel) return;
     const fetchStudents = async () => {
@@ -65,7 +86,7 @@ export default function ExportRekapPage() {
   );
   const filteredRombels = rombels.filter((r) => r.level === selectedLevel);
 
-  // Fungsi utama untuk menghitung dan mendownload rekap ke CSV/Excel
+  // Fungsi Export Excel dengan Pengaturan Print Otomatis (Landscape & Fit to Page)
   const handleExportExcel = async () => {
     setLoading(true);
     try {
@@ -81,9 +102,10 @@ export default function ExportRekapPage() {
       }
 
       const studentIds = targetStudents.map((s) => s.id);
+
       const { data: scoresData } = await supabase
         .from("assessment_points")
-        .select("student_id, indicator_id, week_number, score")
+        .select("student_id, indicator_id, week_number, score, subject_name")
         .in("student_id", studentIds);
 
       const { data: catData } = await supabase
@@ -93,72 +115,186 @@ export default function ExportRekapPage() {
         .from("assessment_indicators")
         .select("*");
 
-      // Menggunakan tabulasi (\t) agar saat dibuka di Excel otomatis terbagi ke dalam kolom-kolom tabel yang rapi
-      let excelContent =
-        "No\tNISN\tNama Siswa\tRombel\tTotal Minggu Dinilai\tNilai Akhir Semester (Rata-rata)\n";
+      let excelContent = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+          <meta charset="utf-8" />
+          <xml>
+            <x:ExcelWorkbook>
+              <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                  <x:Name>Rekap Nilai</x:Name>
+                  <x:WorksheetOptions>
+                    <x:DisplayGridlines/>
+                    <!-- PENGATURAN CETAK OTOMATIS (LANDSCAPE & FIT TO PAGE) -->
+                    <x:PageSetup>
+                      <x:Layout x:Orientation="Landscape"/>
+                      <x:Header x:Margin="0.3"/>
+                      <x:Footer x:Margin="0.3"/>
+                      <x:PageMargins x:Bottom="0.5" x:Left="0.5" x:Right="0.5" x:Top="0.5"/>
+                    </x:PageSetup>
+                    <x:FitToPage/>
+                    <x:Print>
+                      <x:FitWidth>1</x:FitWidth>
+                      <x:FitHeight>0</x:FitHeight>
+                      <x:ValidPrinterInfo/>
+                    </x:Print>
+                  </x:WorksheetOptions>
+                </x:ExcelWorksheet>
+              </x:ExcelWorksheets>
+            </x:ExcelWorkbook>
+          </xml>
+          <style>
+            table { border-collapse: collapse; font-family: Arial, sans-serif; font-size: 11pt; }
+            th, td { border: 1px solid #000000; padding: 6px 12px; vertical-align: middle; }
+            th { 
+              background-color: #059669; /* Hijau Emerald */
+              color: #ffffff; 
+              font-weight: bold; 
+              text-align: center; 
+            }
+            .text-format { mso-number-format:"\\@"; }
+            .center-align { text-align: center; }
+            
+            /* Baris pemisah antar siswa */
+            .spacer-row td { 
+              background-color: #cbd5e1; 
+              border: 1px solid #64748b;
+              height: 12px;
+            }
+          </style>
+        </head>
+        <body>
+          <table>
+            <thead>
+              <tr>
+                <th>No</th>
+                <th>NISN</th>
+                <th>Nama Siswa</th>
+                <th>Rombel</th>
+                <th>Mata Pelajaran</th>
+                <th>Total Minggu Aktif</th>
+                <th>Rata-Rata Harian (Disiplin/Tugas/Sikap)</th>
+                <th>Nilai Ulangan Harian (UH)</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
 
-      for (let i = 0; i < targetStudents.length; i++) {
-        const student = targetStudents[i];
+      targetStudents.forEach((student, index) => {
         const studentScores = (scoresData || []).filter(
           (s) => s.student_id === student.id,
         );
 
-        const activeWeeks = Array.from(
-          new Set(studentScores.map((s) => s.week_number)),
-        );
+        let isFirstSubject = true;
 
-        let totalWeeklyAverages = 0;
-        let validWeeksCount = 0;
-
-        activeWeeks.forEach((weekNum) => {
-          const scoresForThisWeek = studentScores.filter(
-            (s) => s.week_number === weekNum,
+        SUBJECTS.forEach((subject) => {
+          const subScores = studentScores.filter(
+            (s) =>
+              s.subject_name === subject ||
+              (!s.subject_name && subject === "IPAS"),
           );
 
-          let weekScoreSum = 0;
-          let categoryCount = 0;
+          const activeWeeks = Array.from(
+            new Set(subScores.map((s) => s.week_number)),
+          );
 
-          if (catData && indData) {
-            catData.forEach((cat) => {
-              const indicatorsInCat = indData.filter(
-                (ind) => ind.category_id === cat.id,
-              );
-              if (indicatorsInCat.length > 0) {
-                const indIds = indicatorsInCat.map((ind) => ind.id);
-                const matchedScores = scoresForThisWeek.filter((s) =>
-                  indIds.includes(s.indicator_id),
+          let totalWeeklyAverages = 0;
+          let validWeeksCount = 0;
+          let totalUhScoreSum = 0;
+          let uhCount = 0;
+
+          activeWeeks.forEach((weekNum) => {
+            const scoresForThisWeek = subScores.filter(
+              (s) => s.week_number === weekNum,
+            );
+
+            let weekScoreSum = 0;
+            let categoryCount = 0;
+
+            if (catData && indData) {
+              catData.forEach((cat) => {
+                const indicatorsInCat = indData.filter(
+                  (ind) => ind.category_id === cat.id,
                 );
+                if (indicatorsInCat.length > 0) {
+                  const indIds = indicatorsInCat.map((ind) => ind.id);
+                  const matchedScores = scoresForThisWeek.filter((s) =>
+                    indIds.includes(s.indicator_id),
+                  );
 
-                if (matchedScores.length > 0) {
-                  const catAvg =
-                    matchedScores.reduce(
-                      (acc, curr) => acc + Number(curr.score),
-                      0,
-                    ) / matchedScores.length;
-                  weekScoreSum += catAvg;
-                  categoryCount += 1;
+                  if (matchedScores.length > 0) {
+                    const catAvg =
+                      matchedScores.reduce(
+                        (acc, curr) => acc + Number(curr.score),
+                        0,
+                      ) / matchedScores.length;
+
+                    const isUH =
+                      cat.name.toUpperCase().includes("UH") ||
+                      cat.name.toUpperCase().includes("ULANGAN");
+                    if (isUH) {
+                      totalUhScoreSum += catAvg;
+                      uhCount += 1;
+                    } else {
+                      weekScoreSum += catAvg;
+                      categoryCount += 1;
+                    }
+                  }
                 }
-              }
-            });
-          }
+              });
+            }
 
-          if (categoryCount > 0) {
-            const weeklyAvg = weekScoreSum / categoryCount;
-            totalWeeklyAverages += weeklyAvg;
-            validWeeksCount += 1;
-          }
+            if (categoryCount > 0) {
+              const weeklyAvg = weekScoreSum / categoryCount;
+              totalWeeklyAverages += weeklyAvg;
+              validWeeksCount += 1;
+            }
+          });
+
+          const finalDailyScore =
+            validWeeksCount > 0
+              ? (totalWeeklyAverages / validWeeksCount).toFixed(2)
+              : "0.00";
+
+          const finalUhScore =
+            uhCount > 0 ? (totalUhScoreSum / uhCount).toFixed(2) : "0.00";
+
+          const colNo = isFirstSubject ? index + 1 : "";
+          const colNisn = isFirstSubject ? student.nisn : "";
+          const colName = isFirstSubject ? student.name : "";
+          const colRombel = isFirstSubject ? selectedRombel?.name || "" : "";
+
+          excelContent += `
+            <tr>
+              <td class="center-align">${colNo}</td>
+              <td class="text-format">${colNisn}</td>
+              <td>${colName}</td>
+              <td>${colRombel}</td>
+              <td>${subject}</td>
+              <td class="center-align">${validWeeksCount} Minggu</td>
+              <td class="center-align" style="font-weight: bold;">${finalDailyScore}</td>
+              <td class="center-align" style="font-weight: bold;">${finalUhScore}</td>
+            </tr>
+          `;
+
+          isFirstSubject = false;
         });
 
-        const finalSemesterScore =
-          validWeeksCount > 0
-            ? (totalWeeklyAverages / validWeeksCount).toFixed(2)
-            : "0.00";
+        excelContent += `
+            <tr class="spacer-row">
+              <td colspan="8">&nbsp;</td>
+            </tr>
+        `;
+      });
 
-        // Masukkan data terpisah tab (\t) agar masuk ke kolom Excel masing-masing
-        excelContent += `${i + 1}\t${student.nisn}\t${student.name}\t${selectedRombel?.name}\t${validWeeksCount}\t${finalSemesterScore}\n`;
-      }
+      excelContent += `
+            </tbody>
+          </table>
+        </body>
+        </html>
+      `;
 
-      // Ubah ekstensi menjadi .xls agar Excel langsung mengenalinya sebagai format tabel siap-baca
       const blob = new Blob([excelContent], {
         type: "application/vnd.ms-excel;charset=utf-8;",
       });
@@ -191,10 +327,10 @@ export default function ExportRekapPage() {
             </div>
             <div>
               <h1 className="text-xl font-bold text-slate-900">
-                Export Rekap Nilai
+                Export Rekap Nilai Per Mapel
               </h1>
               <p className="text-xs text-slate-500">
-                Unduh data rekapitulasi semester ke Excel/CSV
+                Akumulasi semester per mata pelajaran siap unduh
               </p>
             </div>
           </div>
@@ -306,8 +442,8 @@ export default function ExportRekapPage() {
                 <Download className="w-4 h-4" />
                 <span>
                   {loading
-                    ? "Menyiapkan Data..."
-                    : "Download Rekap Excel (.csv)"}
+                    ? "Menyiapkan Dokumen Excel..."
+                    : "Download Rekap Excel Per Mapel (.xls)"}
                 </span>
               </button>
             </div>
