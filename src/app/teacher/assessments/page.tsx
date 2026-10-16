@@ -113,17 +113,19 @@ export default function TeacherAssessmentPage() {
     Record<string, Record<number, PointData>>
   >({});
 
+  // State Modal Tambah Siswa
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
   const [newStudentName, setNewStudentName] = useState("");
   const [newStudentNisn, setNewStudentNisn] = useState("");
   const [addingStudent, setAddingStudent] = useState(false);
-
+  // --- STATE MODAL EDIT SISWA DI SINI ---
   const [isEditStudentOpen, setIsEditStudentOpen] = useState(false);
   const [studentToEdit, setStudentToEdit] = useState<Student | null>(null);
   const [editStudentName, setEditStudentName] = useState("");
   const [editStudentNisn, setEditStudentNisn] = useState("");
   const [editingStudent, setEditingStudent] = useState(false);
 
+  // State Modal Preview Rapor Guru
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewScores, setPreviewScores] = useState<ScoreItem[]>([]);
   const [previewActiveSubject, setPreviewActiveSubject] = useState<string>(
@@ -137,12 +139,15 @@ export default function TeacherAssessmentPage() {
 
   const supabase = createClient();
   const router = useRouter();
-
   useEffect(() => {
+    // Jika masih di menu awal (Langkah 1), biarkan tombol back HP bekerja normal
     if (step === 1) return;
+
+    // Tambahkan history "palsu" ke browser
     window.history.pushState(null, "", window.location.href);
 
     const handleBackButton = () => {
+      // Atur urutan mundur berdasarkan posisi step saat ini
       if (step === 4) {
         setStep(3);
         setSelectedStudent(null);
@@ -155,12 +160,15 @@ export default function TeacherAssessmentPage() {
       }
     };
 
+    // Dengarkan saat tombol back di HP ditekan
     window.addEventListener("popstate", handleBackButton);
+
+    // Bersihkan listener saat step berubah
     return () => {
       window.removeEventListener("popstate", handleBackButton);
     };
   }, [step]);
-
+  // Ambil data awal
   useEffect(() => {
     const fetchInitialData = async () => {
       const { data: rombelData } = await supabase
@@ -215,25 +223,29 @@ export default function TeacherAssessmentPage() {
         .eq("is_active", true)
         .single();
 
+      // --- RUMUS OTOMATIS YANG LEBIH AKURAT (KEBAL JAM & ZONA WAKTU) ---
       let autoWeek = 1;
       if (activeAY) {
         const startYear = parseInt(activeAY.name.split("/")[0]);
+
         let semesterStartDate = new Date(`${startYear}-07-13T00:00:00`);
         if (activeAY.semester.toLowerCase().includes("genap")) {
           semesterStartDate = new Date(`${startYear + 1}-01-04T00:00:00`);
         }
 
         const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        today.setHours(0, 0, 0, 0); // Kunci di jam 00:00:00 agar tidak meleset
 
         const diffTime = today.getTime() - semesterStartDate.getTime();
         const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
+        // Tanggal 13 Juli (Senin). Tambah 2 hari agar siklus mingguan jatuh pas di hari Sabtu.
         autoWeek = Math.floor((diffDays + 2) / 7) + 1;
 
         if (autoWeek < 1) autoWeek = 1;
         if (autoWeek > 24) autoWeek = 24;
       }
+      // ----------------------------------------------------------------
 
       const { data: rombelData } = await supabase
         .from("rombels")
@@ -288,7 +300,7 @@ export default function TeacherAssessmentPage() {
       setAddingStudent(false);
     }
   };
-
+  // --- FUNGSI EDIT SISWA ---
   const handleEditStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!studentToEdit || !editStudentName.trim()) return;
@@ -309,7 +321,10 @@ export default function TeacherAssessmentPage() {
 
       setSuccess(`Data siswa berhasil diperbarui!`);
       setIsEditStudentOpen(false);
+
+      // Segarkan daftar siswa di layar
       await fetchStudentsList(selectedRombel);
+
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
       setError(err.message || "Gagal memperbarui data siswa.");
@@ -317,7 +332,7 @@ export default function TeacherAssessmentPage() {
       setEditingStudent(false);
     }
   };
-
+  // ---------------------------------------------------------
   const handleAddUHIndicator = async (categoryId: number) => {
     const catIndicators = indicators.filter(
       (i) => i.category_id === categoryId,
@@ -370,6 +385,7 @@ export default function TeacherAssessmentPage() {
         detailsMap[sub] = {};
       });
 
+      // Siapkan wadah nilai untuk SEMUA indikator di SETIAP mapel
       indicators.forEach((ind) => {
         SUBJECTS.forEach((sub) => {
           detailsMap[sub][ind.id] = { score: 100, notes: "" };
@@ -439,6 +455,18 @@ export default function TeacherAssessmentPage() {
     return Math.round((total / relatedScores.length) * 10) / 10;
   };
 
+  const getPreviewCategoryScoreByName = (
+    nameKeyword: string,
+    subjectName: string,
+  ) => {
+    const matchedCat = categories.find(
+      (c) => c.name.trim().toLowerCase() === nameKeyword.trim().toLowerCase(),
+    );
+    if (!matchedCat) return 0;
+    return getPreviewCategoryAverage(Number(matchedCat.id), subjectName);
+  };
+
+  // --- PERHITUNGAN NILAI BARU (UH TERPISAH) ---
   const getPreviewUHScore = (subjectName: string) => {
     const uhCat = categories.find(
       (c) =>
@@ -476,7 +504,10 @@ export default function TeacherAssessmentPage() {
     return getPreviewCategoryAverage(Number(matchedCat.id), subjectName);
   };
 
+  // Nilai UH dihitung tersendiri (rata-rata dari semua UH yang ada)
   const pUH = getPreviewUHScore(previewActiveSubject);
+
+  // Komponen harian murni (Kehadiran + Tugas + Sikap) dibagi 3
   const pKehadiran =
     getPreviewCategoryAverageByName("Kehadiran", previewActiveSubject) ||
     getPreviewCategoryAverageByName("Absensi", previewActiveSubject);
@@ -484,6 +515,8 @@ export default function TeacherAssessmentPage() {
   const pSikap = getPreviewCategoryAverageByName("Sikap", previewActiveSubject);
 
   const harianComponents = [pKehadiran, pTugas, pSikap].filter((s) => s > 0);
+
+  // Rata-Rata murni dari harian saja
   const pWeeklyAvg =
     harianComponents.length > 0
       ? Number(
@@ -551,6 +584,8 @@ export default function TeacherAssessmentPage() {
 
     try {
       const upsertData: any[] = [];
+
+      // Simpan SEMUA indikator untuk SEMUA mata pelajaran
       indicators.forEach((ind) => {
         SUBJECTS.forEach((sub) => {
           const current = pointDetails[sub]?.[ind.id];
@@ -599,19 +634,19 @@ export default function TeacherAssessmentPage() {
 
   const renderBreadcrumbs = () => {
     return (
-      <div className="flex items-center space-x-2 text-xs sm:text-sm font-medium text-slate-600 mb-6 overflow-x-auto whitespace-nowrap pb-2">
+      <div className="flex items-center space-x-2 text-xs sm:text-sm font-medium text-slate-500 mb-6 overflow-x-auto whitespace-nowrap pb-2">
         <button
           onClick={() => setStep(1)}
-          className={`hover:text-emerald-700 transition-colors ${step >= 1 ? "text-emerald-800 font-bold" : ""}`}
+          className={`hover:text-emerald-600 transition-colors ${step >= 1 ? "text-emerald-600" : ""}`}
         >
           Pilih Kelas
         </button>
         {step >= 2 && selectedLevel && (
           <>
-            <ChevronRight className="w-4 h-4 text-slate-400" />
+            <ChevronRight className="w-4 h-4 text-slate-300" />
             <button
               onClick={() => setStep(2)}
-              className={`hover:text-emerald-700 transition-colors ${step >= 2 ? "text-emerald-800 font-bold" : ""}`}
+              className={`hover:text-emerald-600 transition-colors ${step >= 2 ? "text-emerald-600" : ""}`}
             >
               Kelas {selectedLevel}
             </button>
@@ -619,10 +654,10 @@ export default function TeacherAssessmentPage() {
         )}
         {step >= 3 && selectedRombel && (
           <>
-            <ChevronRight className="w-4 h-4 text-slate-400" />
+            <ChevronRight className="w-4 h-4 text-slate-300" />
             <button
               onClick={() => setStep(3)}
-              className={`hover:text-emerald-700 transition-colors ${step >= 3 ? "text-emerald-800 font-bold" : ""}`}
+              className={`hover:text-emerald-600 transition-colors ${step >= 3 ? "text-emerald-600" : ""}`}
             >
               {rombels.find((r) => r.id.toString() === selectedRombel)?.name}
             </button>
@@ -630,10 +665,8 @@ export default function TeacherAssessmentPage() {
         )}
         {step === 4 && selectedStudent && (
           <>
-            <ChevronRight className="w-4 h-4 text-slate-400" />
-            <span className="text-slate-900 font-bold">
-              {selectedStudent.name}
-            </span>
+            <ChevronRight className="w-4 h-4 text-slate-300" />
+            <span className="text-slate-800">{selectedStudent.name}</span>
           </>
         )}
       </div>
@@ -649,12 +682,11 @@ export default function TeacherAssessmentPage() {
 
   return (
     <div className="min-h-screen p-4 sm:p-8">
-      {/* Warna latar solid dihapus agar tembus ke watermark layout */}
       <div className="max-w-5xl mx-auto space-y-6">
         {step === 1 ? (
           <Link
             href="/teacher"
-            className="inline-flex items-center space-x-2 text-sm font-bold text-slate-600 hover:text-emerald-700 transition-colors bg-white/45 backdrop-blur-[2px] px-4 py-2 rounded-xl border border-white/40 shadow-sm w-fit"
+            className="inline-flex items-center space-x-2 text-sm font-medium text-slate-500 hover:text-emerald-600 transition-colors w-fit"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Kembali ke Menu Utama</span>
@@ -662,27 +694,26 @@ export default function TeacherAssessmentPage() {
         ) : (
           <button
             onClick={() => setStep((prev) => (prev - 1) as 1 | 2 | 3 | 4)}
-            className="inline-flex items-center space-x-2 text-sm font-bold text-slate-600 hover:text-emerald-700 transition-colors bg-white/45 backdrop-blur-[2px] px-4 py-2 rounded-xl border border-white/40 shadow-sm w-fit"
+            className="inline-flex items-center space-x-2 text-sm font-medium text-slate-500 hover:text-emerald-600 transition-colors w-fit"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Kembali</span>
           </button>
         )}
 
-        {/* HEADER UTAMA DENGAN EFEK FROSTED GLASS */}
-        <div className="bg-white/45 backdrop-blur-[2px] p-6 rounded-2xl border border-white/40 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-100/80 text-emerald-800 font-bold uppercase tracking-wider backdrop-blur-sm border border-emerald-200/50">
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold uppercase tracking-wider">
               Portal Wali Kelas (Evaluasi Akhir Pekan)
             </span>
-            <h1 className="text-2xl font-bold text-slate-900 mt-2">
+            <h1 className="text-2xl font-bold text-slate-900 mt-1">
               Input Penilaian Siswa
             </h1>
           </div>
           <div className="flex items-center space-x-2">
             <button
               onClick={() => router.push("/parent/rekap")}
-              className="flex items-center space-x-1.5 px-4 py-2 bg-emerald-50/80 hover:bg-emerald-100/80 text-emerald-800 rounded-xl text-sm font-bold transition-colors backdrop-blur-sm border border-emerald-200/50"
+              className="flex items-center space-x-1.5 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-sm font-medium transition-colors"
             >
               <ExternalLink className="w-4 h-4" />
               <span className="hidden sm:inline">Portal Orang Tua</span>
@@ -693,7 +724,7 @@ export default function TeacherAssessmentPage() {
                 localStorage.clear();
                 window.location.href = "/guru";
               }}
-              className="flex items-center space-x-1.5 px-4 py-2 bg-rose-50/80 hover:bg-rose-100/80 text-rose-800 rounded-xl text-sm font-bold transition-colors backdrop-blur-sm border border-rose-200/50"
+              className="flex items-center space-x-1.5 px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-sm font-medium transition-colors"
             >
               <LogOut className="w-4 h-4" />
               <span className="hidden sm:inline">Keluar</span>
@@ -702,13 +733,13 @@ export default function TeacherAssessmentPage() {
         </div>
 
         {error && (
-          <div className="bg-red-50/90 backdrop-blur-sm border-l-4 border-red-500 p-4 text-sm text-red-800 rounded-r-lg flex items-center space-x-2 shadow-sm">
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 text-sm text-red-700 rounded-r-lg flex items-center space-x-2">
             <AlertCircle className="w-5 h-5 flex-shrink-0" />
             <span>{error}</span>
           </div>
         )}
         {success && (
-          <div className="bg-emerald-50/90 backdrop-blur-sm border-l-4 border-emerald-500 p-4 text-sm text-emerald-800 rounded-r-lg flex items-center space-x-2 shadow-sm">
+          <div className="bg-emerald-50 border-l-4 border-emerald-500 p-4 text-sm text-emerald-700 rounded-r-lg flex items-center space-x-2">
             <CheckCircle className="w-5 h-5 flex-shrink-0" />
             <span>{success}</span>
           </div>
@@ -718,9 +749,9 @@ export default function TeacherAssessmentPage() {
 
         {/* STEP 1 */}
         {step === 1 && (
-          <div className="bg-white/35 backdrop-blur-[3px] p-6 rounded-2xl border border-white/30 shadow-sm space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <GraduationCap className="w-5 h-5 text-emerald-700" /> Langkah 1:
+              <GraduationCap className="w-5 h-5 text-emerald-600" /> Langkah 1:
               Pilih Tingkat Kelas
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -731,12 +762,12 @@ export default function TeacherAssessmentPage() {
                     setSelectedLevel(level);
                     setStep(2);
                   }}
-                  className="bg-white/55 backdrop-blur-[1px] p-6 rounded-2xl border border-white/50 hover:border-emerald-400 hover:bg-white/70 transition-all flex flex-col items-center justify-center gap-3 group shadow-sm"
+                  className="bg-white p-6 rounded-2xl border border-slate-200 hover:border-emerald-500 hover:shadow-md transition-all flex flex-col items-center justify-center gap-3 group"
                 >
-                  <div className="p-4 bg-emerald-50/80 text-emerald-700 rounded-full group-hover:scale-110 transition-transform shadow-sm">
+                  <div className="p-4 bg-emerald-50 text-emerald-600 rounded-full group-hover:scale-110 transition-transform">
                     <GraduationCap className="w-8 h-8" />
                   </div>
-                  <span className="font-bold text-slate-800 group-hover:text-emerald-700 text-lg">
+                  <span className="font-bold text-slate-700 group-hover:text-emerald-700 text-lg">
                     Kelas {level}
                   </span>
                 </button>
@@ -747,9 +778,9 @@ export default function TeacherAssessmentPage() {
 
         {/* STEP 2 */}
         {step === 2 && (
-          <div className="bg-white/35 backdrop-blur-[3px] p-6 rounded-2xl border border-white/30 shadow-sm space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-emerald-700" /> Langkah 2: Pilih
+              <BookOpen className="w-5 h-5 text-emerald-600" /> Langkah 2: Pilih
               Rombongan Belajar
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -760,17 +791,17 @@ export default function TeacherAssessmentPage() {
                     setSelectedRombel(rombel.id.toString());
                     setStep(3);
                   }}
-                  className="bg-white/55 backdrop-blur-[1px] p-5 rounded-2xl border border-white/50 hover:border-emerald-400 hover:bg-white/70 transition-all flex items-center justify-between group text-left shadow-sm"
+                  className="bg-white p-5 rounded-2xl border border-slate-200 hover:border-emerald-500 hover:shadow-md transition-all flex items-center justify-between group text-left"
                 >
                   <div>
-                    <h3 className="font-bold text-slate-900 text-lg group-hover:text-emerald-700">
+                    <h3 className="font-bold text-slate-800 text-lg group-hover:text-emerald-700">
                       {rombel.name}
                     </h3>
-                    <p className="text-sm text-slate-600 font-medium">
+                    <p className="text-sm text-slate-500">
                       Kelas {rombel.level}
                     </p>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-emerald-600" />
+                  <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-emerald-500" />
                 </button>
               ))}
             </div>
@@ -779,11 +810,11 @@ export default function TeacherAssessmentPage() {
 
         {/* STEP 3 */}
         {step === 3 && (
-          <div className="bg-white/35 backdrop-blur-[3px] p-6 rounded-2xl border border-white/30 shadow-sm space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/40 pb-4">
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-emerald-700" />
-                <h2 className="text-lg font-bold text-slate-900">
+                <Users className="w-5 h-5 text-emerald-600" />
+                <h2 className="text-lg font-bold text-slate-800">
                   Langkah 3: Pilih Siswa ({activeRombelName})
                 </h2>
               </div>
@@ -791,16 +822,16 @@ export default function TeacherAssessmentPage() {
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setIsAddStudentOpen(true)}
-                  className="flex items-center space-x-1.5 px-4 py-2.5 bg-emerald-600/90 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition-all shadow-sm backdrop-blur-sm"
+                  className="flex items-center space-x-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition-all shadow-sm"
                 >
                   <UserPlus className="w-4 h-4" />
                   <span>+ Tambah Siswa</span>
                 </button>
 
-                <div className="flex items-center space-x-3 bg-emerald-50/80 backdrop-blur-sm p-2 px-4 rounded-xl border border-emerald-200/50 shadow-sm">
-                  <CalendarDays className="w-5 h-5 text-emerald-700" />
+                <div className="flex items-center space-x-3 bg-emerald-50 p-2 px-4 rounded-xl border border-emerald-200 shadow-sm">
+                  <CalendarDays className="w-5 h-5 text-emerald-600" />
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
+                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">
                       Periode
                     </span>
                     <span className="text-sm font-black text-slate-900">
@@ -812,17 +843,15 @@ export default function TeacherAssessmentPage() {
             </div>
 
             {loading ? (
-              <div className="text-center py-12 text-slate-600 font-medium">
+              <div className="text-center py-12 text-slate-500">
                 Memuat data siswa...
               </div>
             ) : students.length === 0 ? (
               <div className="text-center py-12 space-y-3">
-                <p className="text-slate-600 font-medium">
-                  Belum ada siswa di rombel ini.
-                </p>
+                <p className="text-slate-500">Belum ada siswa di rombel ini.</p>
                 <button
                   onClick={() => setIsAddStudentOpen(true)}
-                  className="px-4 py-2 bg-emerald-50/80 text-emerald-800 hover:bg-emerald-100/80 rounded-xl text-sm font-bold transition-all inline-flex items-center gap-2 border border-emerald-200/50 backdrop-blur-sm shadow-sm"
+                  className="px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-xl text-sm font-bold transition-all inline-flex items-center gap-2 border border-emerald-200"
                 >
                   <UserPlus className="w-4 h-4" /> Tambah Siswa Pertama
                 </button>
@@ -832,8 +861,9 @@ export default function TeacherAssessmentPage() {
                 {students.map((st) => (
                   <div
                     key={st.id}
-                    className="bg-white/55 backdrop-blur-[1px] p-4 rounded-2xl border border-white/50 hover:border-emerald-400 hover:bg-white/70 transition-all flex items-start gap-3 relative shadow-sm"
+                    className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-emerald-500 hover:shadow-md transition-all flex items-start gap-3 relative"
                   >
+                    {/* Area Klik Kiri (Buka Halaman Nilai) */}
                     <button
                       onClick={() => {
                         setSelectedStudent(st);
@@ -841,28 +871,29 @@ export default function TeacherAssessmentPage() {
                       }}
                       className="flex-1 flex items-start gap-3 text-left pr-10 group"
                     >
-                      <div className="bg-emerald-50/80 p-2 rounded-lg group-hover:bg-emerald-100 transition-colors shadow-sm">
-                        <UserCircle2 className="w-6 h-6 text-emerald-700" />
+                      <div className="bg-emerald-50 p-2 rounded-lg group-hover:bg-emerald-100 transition-colors">
+                        <UserCircle2 className="w-6 h-6 text-emerald-600" />
                       </div>
                       <div>
-                        <h3 className="font-bold text-slate-900 text-sm line-clamp-2 leading-snug group-hover:text-emerald-700">
+                        <h3 className="font-bold text-slate-800 text-sm line-clamp-2 leading-snug group-hover:text-emerald-700">
                           {st.name}
                         </h3>
-                        <p className="text-xs text-slate-600 font-medium mt-1">
+                        <p className="text-xs text-slate-500 mt-1">
                           NISN: {st.nisn}
                         </p>
                       </div>
                     </button>
 
+                    {/* Tombol Edit Siswa (Selalu Tampil & Ramah HP) */}
                     <button
                       onClick={(e) => {
-                        e.stopPropagation();
+                        e.stopPropagation(); // Mencegah klik masuk ke halaman nilai
                         setStudentToEdit(st);
                         setEditStudentName(st.name);
                         setEditStudentNisn(st.nisn === "-" ? "" : st.nisn);
                         setIsEditStudentOpen(true);
                       }}
-                      className="absolute top-3 right-3 p-2 bg-white/80 text-slate-500 hover:text-amber-700 hover:bg-amber-100/80 rounded-xl border border-slate-200/50 transition-all active:scale-90 shadow-sm"
+                      className="absolute top-3 right-3 p-2 bg-slate-50 text-slate-500 hover:text-amber-600 hover:bg-amber-100 rounded-xl border border-slate-200 transition-all active:scale-90 shadow-sm"
                       title="Edit Data Siswa"
                     >
                       <Edit2 className="w-4 h-4" />
@@ -941,8 +972,7 @@ export default function TeacherAssessmentPage() {
             </div>
           </div>
         )}
-
-        {/* MODAL EDIT SISWA */}
+        {/* --- MODAL EDIT SISWA --- */}
         {isEditStudentOpen && studentToEdit && (
           <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-100 space-y-6">
@@ -1025,6 +1055,7 @@ export default function TeacherAssessmentPage() {
                   </p>
                 </div>
 
+                {/* DROPDOWN MAPEL PINDAH KE ATAS PREVIEW AGAR TERLIHAT JELAS */}
                 <div className="w-full sm:w-auto bg-slate-50 p-2 rounded-xl border border-slate-200 flex items-center gap-2">
                   <BookMarked className="w-4 h-4 text-slate-400 ml-2" />
                   <select
@@ -1059,7 +1090,9 @@ export default function TeacherAssessmentPage() {
                   Ringkasan Perkembangan (Mapel: {previewActiveSubject})
                 </h4>
 
+                {/* --- KITA PISAH JADI 2 KELOMPOK SUPAYA TIDAK DISANGKA DIGABUNG --- */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* KELOMPOK 1: ULANGAN HARIAN (BERDIRI SENDIRI) */}
                   <div className="bg-amber-50/50 rounded-2xl p-4 border border-amber-200/60 flex items-center justify-between">
                     <div>
                       <span className="text-[11px] font-extrabold text-amber-800 uppercase tracking-wider block mb-0.5">
@@ -1076,6 +1109,7 @@ export default function TeacherAssessmentPage() {
                     </div>
                   </div>
 
+                  {/* KELOMPOK 2: KOMPONEN HARIAN & RATA-RATA UTAMA */}
                   <div className="bg-emerald-50/30 rounded-2xl p-4 border border-emerald-200/60 space-y-3">
                     <span className="text-[11px] font-extrabold text-emerald-900 uppercase tracking-wider block">
                       Komponen Harian / Disiplin
@@ -1192,6 +1226,7 @@ export default function TeacherAssessmentPage() {
                                           </span>
                                         </div>
 
+                                        {/* Menampilkan deskripsi/catatan jika diisi */}
                                         {info.notes && (
                                           <p className="text-[11px] text-slate-500 italic bg-white/80 px-2.5 py-1 rounded border border-slate-100 flex items-center gap-1.5">
                                             <span className="font-bold not-italic text-emerald-600">
@@ -1226,12 +1261,12 @@ export default function TeacherAssessmentPage() {
           </div>
         )}
 
-        {/* STEP 4: FORM INPUT NILAI UTAMA */}
+        {/* STEP 4: FORM INPUT NILAI */}
         {step === 4 && selectedStudent && (
-          <div className="bg-white/45 backdrop-blur-[3px] p-6 sm:p-8 rounded-3xl border border-white/40 shadow-sm space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-white/40">
+          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-100">
               <div>
-                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">
+                <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">
                   Evaluasi Siswa • Minggu Ke-{weekNumber}
                 </span>
                 <h2 className="text-2xl font-black text-slate-900 mt-1">
@@ -1242,7 +1277,7 @@ export default function TeacherAssessmentPage() {
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   onClick={handleOpenPreview}
-                  className="px-5 py-3.5 bg-white/70 hover:bg-white/90 text-slate-800 rounded-xl text-sm font-bold transition-all flex items-center gap-2 border border-white/50 shadow-sm"
+                  className="px-5 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-bold transition-all flex items-center gap-2"
                 >
                   <Eye className="w-4 h-4" /> Lihat Rapor Siswa
                 </button>
@@ -1250,7 +1285,7 @@ export default function TeacherAssessmentPage() {
                 <button
                   onClick={handleSaveStudent}
                   disabled={saving}
-                  className="px-8 py-3.5 bg-emerald-600/90 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition-all shadow-sm flex items-center justify-center gap-2 backdrop-blur-sm"
+                  className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition-all shadow-sm flex items-center justify-center gap-2"
                 >
                   <CheckCircle className="w-5 h-5" />{" "}
                   {saving ? "Menyimpan..." : "Simpan Penilaian"}
@@ -1258,16 +1293,16 @@ export default function TeacherAssessmentPage() {
               </div>
             </div>
 
-            {/* DROPDOWN MAPEL */}
-            <div className="bg-emerald-50/70 backdrop-blur-sm border border-emerald-200/50 p-5 rounded-2xl shadow-sm mb-4">
+            {/* --- DROPDOWN MAPEL GLOBAL (Pindah Ke Sini) --- */}
+            <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-2xl shadow-sm mb-4">
               <label className="text-sm font-extrabold text-emerald-900 flex items-center gap-2 mb-2.5">
-                <BookMarked className="w-5 h-5 text-emerald-700" />
+                <BookMarked className="w-5 h-5 text-emerald-600" />
                 Mata Pelajaran yang Sedang Dinilai:
               </label>
               <select
                 value={activeSubject}
                 onChange={(e) => setActiveSubject(e.target.value)}
-                className="w-full sm:max-w-md px-4 py-3.5 border-2 border-emerald-300/60 rounded-xl text-sm font-bold text-slate-900 bg-white/80 hover:bg-white/95 focus:border-emerald-500 focus:ring-0 transition-colors cursor-pointer shadow-sm appearance-none backdrop-blur-sm"
+                className="w-full sm:max-w-md px-4 py-3.5 border-2 border-emerald-200 rounded-xl text-sm font-bold text-slate-800 bg-white hover:bg-slate-50 focus:border-emerald-500 focus:ring-0 transition-colors cursor-pointer shadow-sm appearance-none"
                 style={{
                   backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23059669' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
                   backgroundPosition: `right 1rem center`,
@@ -1294,6 +1329,7 @@ export default function TeacherAssessmentPage() {
                 ))}
               </select>
             </div>
+            {/* ---------------------------------------------- */}
 
             <div className="space-y-8 pt-2">
               {variables.map((variable) => {
@@ -1305,9 +1341,9 @@ export default function TeacherAssessmentPage() {
                 return (
                   <div
                     key={variable.id}
-                    className="border border-white/60 rounded-2xl p-4 sm:p-6 space-y-4 bg-white/30 backdrop-blur-[2px] shadow-sm"
+                    className="border-2 border-slate-100 rounded-2xl p-4 sm:p-6 space-y-4 bg-slate-50/50"
                   >
-                    <div className="border-b-2 border-emerald-500/70 pb-2 flex justify-between items-center">
+                    <div className="border-b-2 border-emerald-500 pb-2 flex justify-between items-center">
                       <h3 className="text-lg font-extrabold text-slate-900 uppercase tracking-wide">
                         {variable.name}
                       </h3>
@@ -1327,21 +1363,22 @@ export default function TeacherAssessmentPage() {
                         return (
                           <div
                             key={cat.id}
-                            className="bg-white/60 backdrop-blur-[1px] border border-white/50 rounded-xl p-4 sm:p-5 shadow-sm space-y-4"
+                            className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm space-y-4"
                           >
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/60 pb-3 gap-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-3">
                               <div className="flex items-center space-x-2">
-                                <FolderOpen className="w-5 h-5 text-emerald-700" />
-                                <h4 className="font-bold text-slate-900 uppercase text-sm tracking-wider">
+                                <FolderOpen className="w-5 h-5 text-emerald-600" />
+                                <h4 className="font-bold text-slate-800 uppercase text-sm tracking-wider">
                                   {cat.name}
                                 </h4>
                               </div>
 
                               <div className="flex items-center gap-2">
+                                {/* TOMBOL TAMBAH UH KHUSUS DI KATEGORI UH */}
                                 {isUH && (
                                   <button
                                     onClick={() => handleAddUHIndicator(cat.id)}
-                                    className="px-3 py-1 bg-emerald-600/90 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-sm backdrop-blur-sm"
+                                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-sm"
                                   >
                                     <Plus className="w-3.5 h-3.5" /> Tambah UH
                                   </button>
@@ -1358,15 +1395,16 @@ export default function TeacherAssessmentPage() {
                                 return (
                                   <div
                                     key={ind.id}
-                                    className="bg-white/50 backdrop-blur-sm p-3 sm:p-4 rounded-xl border border-white/60 space-y-2.5 hover:bg-white/70 transition-colors shadow-sm"
+                                    className="bg-slate-50/80 p-3 sm:p-4 rounded-xl border border-slate-200 space-y-2.5 hover:border-emerald-300 transition-colors shadow-sm"
                                   >
+                                    {/* BARIS 1: NAMA INDIKATOR (KIRI) & INPUT NILAI (KANAN) */}
                                     <div className="flex items-center justify-between gap-2">
                                       <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                                        <span className="w-6 h-6 shrink-0 bg-white/80 border border-slate-200/50 text-slate-800 rounded-md flex items-center justify-center text-[11px] font-bold shadow-sm">
+                                        <span className="w-6 h-6 shrink-0 bg-white border border-slate-200 text-slate-700 rounded-md flex items-center justify-center text-[11px] font-bold shadow-sm">
                                           {iIdx + 1}
                                         </span>
                                         <span
-                                          className="text-xs sm:text-sm font-bold text-slate-900 truncate"
+                                          className="text-xs sm:text-sm font-bold text-slate-800 truncate"
                                           title={ind.name}
                                         >
                                           {ind.name}
@@ -1387,14 +1425,15 @@ export default function TeacherAssessmentPage() {
                                               e.target.value,
                                             )
                                           }
-                                          className="w-16 sm:w-20 px-2 py-1.5 border-2 border-white/60 rounded-lg text-sm font-black text-emerald-900 bg-white/80 focus:border-emerald-500 focus:ring-0 text-center transition-colors shadow-sm backdrop-blur-sm"
+                                          className="w-16 sm:w-20 px-2 py-1.5 border-2 border-slate-200 rounded-lg text-sm font-black text-emerald-900 bg-white focus:border-emerald-500 focus:ring-0 text-center transition-colors shadow-sm"
                                         />
                                       </div>
                                     </div>
 
+                                    {/* BARIS 2: KOTAK CATATAN (KIRI) & LABEL STATUS (KANAN) */}
                                     <div className="flex items-center gap-2">
                                       <div className="relative flex-1">
-                                        <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-500">
+                                        <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
                                           <MessageSquare className="w-3.5 h-3.5" />
                                         </div>
                                         <input
@@ -1408,25 +1447,25 @@ export default function TeacherAssessmentPage() {
                                               e.target.value,
                                             )
                                           }
-                                          className="w-full pl-8 pr-3 py-1.5 text-xs sm:text-sm border border-white/60 rounded-lg text-slate-800 bg-white/70 focus:border-emerald-500 focus:ring-0 transition-colors shadow-sm backdrop-blur-sm"
+                                          className="w-full pl-8 pr-3 py-1.5 text-xs sm:text-sm border border-slate-200 rounded-lg text-slate-700 bg-white focus:border-emerald-500 focus:ring-0 transition-colors shadow-sm"
                                         />
                                       </div>
 
                                       <div className="shrink-0 flex justify-end w-[85px] sm:w-[90px]">
                                         {current.score === "" ? (
-                                          <span className="text-[10px] sm:text-xs font-bold text-slate-500 px-2 py-1 bg-white/60 rounded-md border border-slate-200/50 text-center w-full">
+                                          <span className="text-[10px] sm:text-xs font-bold text-slate-400 px-2 py-1 bg-slate-100 rounded-md border border-slate-200 text-center w-full">
                                             -
                                           </span>
                                         ) : Number(current.score) >= 85 ? (
-                                          <span className="text-[10px] sm:text-xs font-bold text-emerald-800 px-2 py-1 bg-emerald-100/80 rounded-md border border-emerald-200/50 text-center w-full backdrop-blur-sm">
+                                          <span className="text-[10px] sm:text-xs font-bold text-emerald-700 px-2 py-1 bg-emerald-100 rounded-md border border-emerald-200 text-center w-full">
                                             Sangat Baik
                                           </span>
                                         ) : Number(current.score) >= 70 ? (
-                                          <span className="text-[10px] sm:text-xs font-bold text-blue-800 px-2 py-1 bg-blue-100/80 rounded-md border border-blue-200/50 text-center w-full backdrop-blur-sm">
+                                          <span className="text-[10px] sm:text-xs font-bold text-blue-700 px-2 py-1 bg-blue-100 rounded-md border border-blue-200 text-center w-full">
                                             Baik
                                           </span>
                                         ) : (
-                                          <span className="text-[10px] sm:text-xs font-bold text-amber-800 px-2 py-1 bg-amber-100/80 rounded-md border border-amber-200/50 text-center w-full backdrop-blur-sm">
+                                          <span className="text-[10px] sm:text-xs font-bold text-amber-700 px-2 py-1 bg-amber-100 rounded-md border border-amber-200 text-center w-full">
                                             Bimbingan
                                           </span>
                                         )}
