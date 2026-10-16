@@ -38,7 +38,12 @@ export default function ClassesPage() {
   const [name, setName] = useState("");
   const [level, setLevel] = useState("1");
   const [selectedAcademicYear, setSelectedAcademicYear] = useState("");
-  const [sourceAcademicYear, setSourceAcademicYear] = useState(""); // Sumber semester yang mau disalin
+  const [sourceAcademicYear, setSourceAcademicYear] = useState("");
+
+  // State untuk input massal dan nilai murni kalender
+  const [globalWeek, setGlobalWeek] = useState("");
+  const [calculatedAutoWeek, setCalculatedAutoWeek] = useState(1);
+
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -60,7 +65,6 @@ export default function ClassesPage() {
     }
     setAcademicYears(ayData || []);
 
-    // Set default ke tahun ajaran aktif jika ada
     const activeAY = ayData?.find((item) => item.is_active);
     if (activeAY && !selectedAcademicYear) {
       setSelectedAcademicYear(activeAY.id);
@@ -68,6 +72,38 @@ export default function ClassesPage() {
     if (ayData && ayData.length > 0 && !sourceAcademicYear) {
       setSourceAcademicYear(ayData[0].id);
     }
+
+    // --- RUMUS OTOMATIS FINAL (ANTI MELESET ZONA WAKTU) ---
+    let autoWeek = 1;
+    if (activeAY) {
+      const startYear = parseInt(activeAY.name.split("/")[0]);
+
+      // Menggunakan new Date(Tahun, BulanIndex, Tanggal) -> Index 6 adalah Juli
+      let semesterStartDate = new Date(startYear, 6, 13);
+      if (activeAY.semester.toLowerCase().includes("genap")) {
+        // Index 0 adalah Januari
+        semesterStartDate = new Date(startYear + 1, 0, 4);
+      }
+
+      const today = new Date();
+      // Kunci kedua tanggal ke jam 00:00:00 agar hitungan murni hari
+      today.setHours(0, 0, 0, 0);
+      semesterStartDate.setHours(0, 0, 0, 0);
+
+      const diffTime = today.getTime() - semesterStartDate.getTime();
+      const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+      // Tambah 2 hari agar siklus jatuh pas hari Sabtu
+      autoWeek = Math.floor((diffDays + 2) / 7) + 1;
+
+      if (autoWeek < 1) autoWeek = 1;
+      if (autoWeek > 24) autoWeek = 24;
+    }
+
+    // Simpan hitungan murni ke dalam state
+    setCalculatedAutoWeek(autoWeek);
+    setGlobalWeek(autoWeek.toString());
+    // -------------------------------------------------------------
 
     // 2. Ambil data rombel
     const { data: rombelData, error: rombelError } = await supabase
@@ -82,7 +118,7 @@ export default function ClassesPage() {
         const ay = ayData?.find((a) => a.id === r.academic_year_id);
         return {
           ...r,
-          active_week: r.active_week ?? 1,
+          active_week: r.active_week ?? 1, // Tetap biarkan nilai aslinya apa adanya
           academic_years: ay
             ? { name: ay.name, semester: ay.semester }
             : undefined,
@@ -115,7 +151,7 @@ export default function ClassesPage() {
         name,
         level: parseInt(level),
         academic_year_id: targetAY,
-        active_week: 1,
+        active_week: 1, // Angka 1 artinya = IKUTI SISTEM OTOMATIS
       },
     ]);
 
@@ -128,7 +164,6 @@ export default function ClassesPage() {
     }
   };
 
-  // FUNGSI UTAMA: Salin Rombel & Siswa dari Semester Sebelumnya ke Semester Baru
   const handleDuplicateRombels = async () => {
     if (!sourceAcademicYear || !selectedAcademicYear) {
       setError("Pilih semester sumber dan semester tujuan terlebih dahulu.");
@@ -160,7 +195,6 @@ export default function ClassesPage() {
     setSuccess(null);
 
     try {
-      // 1. Ambil semua rombel dari semester sumber
       const { data: sourceRombels, error: fetchRombelErr } = await supabase
         .from("rombels")
         .select("*")
@@ -176,7 +210,6 @@ export default function ClassesPage() {
       let copiedCount = 0;
 
       for (const oldRombel of sourceRombels) {
-        // 2. Cek apakah rombel dengan nama dan tingkat yang sama sudah ada di semester target
         const { data: existingTarget } = await supabase
           .from("rombels")
           .select("id")
@@ -186,7 +219,6 @@ export default function ClassesPage() {
 
         let newRombelId = existingTarget?.id;
 
-        // Jika belum ada, buat rombel baru di semester target
         if (!newRombelId) {
           const { data: newRombelData, error: insRombelErr } = await supabase
             .from("rombels")
@@ -205,7 +237,6 @@ export default function ClassesPage() {
           newRombelId = newRombelData.id;
         }
 
-        // 3. Ambil siswa yang ada di rombel lama
         const { data: sourceStudents } = await supabase
           .from("students")
           .select("name, nisn")
@@ -213,7 +244,6 @@ export default function ClassesPage() {
 
         if (sourceStudents && sourceStudents.length > 0) {
           for (const student of sourceStudents) {
-            // Cek apakah siswa dengan NISN tersebut sudah ada di rombel baru untuk menghindari duplikat
             const { data: existingStudent } = await supabase
               .from("students")
               .select("id")
@@ -248,11 +278,9 @@ export default function ClassesPage() {
 
   const handleUpdateActiveWeek = async (
     rombelId: string,
-    currentWeek: number,
-    change: number,
+    absoluteWeek: number,
   ) => {
-    const newWeek = Math.max(1, Math.min(24, currentWeek + change));
-
+    const newWeek = Math.max(1, Math.min(24, absoluteWeek));
     const { error: updateError } = await supabase
       .from("rombels")
       .update({ active_week: newWeek })
@@ -262,6 +290,52 @@ export default function ClassesPage() {
       setError(updateError.message);
     } else {
       fetchData();
+    }
+  };
+
+  const handleSetAllWeeks = async () => {
+    if (!selectedAcademicYear) {
+      setError("Pilih tahun ajaran terlebih dahulu.");
+      return;
+    }
+
+    const targetWeek = parseInt(globalWeek);
+    if (isNaN(targetWeek) || targetWeek < 1 || targetWeek > 24) {
+      setError("Masukkan angka minggu yang valid (1-24).");
+      return;
+    }
+
+    if (
+      !confirm(
+        `Yakin ingin menerapkan nilai ${targetWeek} ke SEMUA kelas? (Pilih angka 1 untuk mengembalikan kelas ke mode Otomatis)`,
+      )
+    ) {
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const targetRombels = rombels.filter(
+        (r) => r.academic_year_id === selectedAcademicYear,
+      );
+
+      const updatePromises = targetRombels.map((r) =>
+        supabase
+          .from("rombels")
+          .update({ active_week: targetWeek })
+          .eq("id", r.id),
+      );
+
+      await Promise.all(updatePromises);
+
+      setSuccess(`Berhasil! Semua kelas telah diperbarui.`);
+      fetchData();
+    } catch (err: any) {
+      setError("Gagal memperbarui minggu: " + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -311,7 +385,6 @@ export default function ClassesPage() {
         </div>
       )}
 
-      {/* FITUR SALIN / DUPLIKAT ROMBEL ANTAR SEMESTER */}
       <div className="bg-emerald-50/70 p-6 rounded-2xl border border-emerald-200 shadow-sm space-y-4">
         <div className="flex items-center space-x-2 text-emerald-900">
           <Copy className="w-5 h-5 text-emerald-600" />
@@ -376,7 +449,6 @@ export default function ClassesPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Form Tambah Rombel Manual */}
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm h-fit">
           <h3 className="text-base font-bold text-slate-900 mb-4">
             Tambah Rombel Manual
@@ -437,11 +509,36 @@ export default function ClassesPage() {
           </form>
         </div>
 
-        {/* Daftar Rombel */}
         <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
-          <h3 className="text-base font-bold text-slate-900 mb-4">
-            Daftar Rombel & Kontrol Minggu Aktif
-          </h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-100">
+            <h3 className="text-base font-bold text-slate-900">
+              Daftar Rombel & Kontrol Minggu Aktif
+            </h3>
+
+            <div className="flex items-center space-x-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200 shadow-sm">
+              <span className="text-xs font-bold text-slate-700 pl-2 hidden sm:inline">
+                Set Semua Kelas ke:
+              </span>
+              <span className="text-xs font-bold text-slate-700 pl-2 sm:hidden">
+                Minggu ke:
+              </span>
+              <input
+                type="number"
+                min={1}
+                max={24}
+                value={globalWeek}
+                onChange={(e) => setGlobalWeek(e.target.value)}
+                className="w-16 px-2 py-1.5 border-2 border-slate-200 rounded-lg text-sm text-center font-black text-emerald-700 focus:border-emerald-500 focus:outline-none"
+              />
+              <button
+                onClick={handleSetAllWeeks}
+                disabled={loading}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+              >
+                Terapkan
+              </button>
+            </div>
+          </div>
 
           {loading ? (
             <p className="text-sm text-slate-500">Memuat data...</p>
@@ -476,25 +573,35 @@ export default function ClassesPage() {
                       <span className="text-xs font-bold text-slate-600">
                         Minggu:
                       </span>
-                      <button
-                        onClick={() =>
-                          handleUpdateActiveWeek(item.id, item.active_week, -1)
+                      <input
+                        type="number"
+                        min={1}
+                        max={24}
+                        // JIKA DI DB NILAINYA 1, TAMPILKAN ANGKA OTOMATIS (calculatedAutoWeek). JIKA BUKAN 1, TAMPILKAN NILAI ASLI.
+                        value={
+                          item.active_week === 1
+                            ? calculatedAutoWeek
+                            : item.active_week
                         }
-                        className="w-7 h-7 bg-white border border-slate-300 rounded-lg font-bold text-slate-700 hover:bg-slate-100 flex items-center justify-center text-xs shadow-sm"
-                      >
-                        -
-                      </button>
-                      <span className="text-sm font-black text-emerald-600 w-6 text-center">
-                        {item.active_week}
-                      </span>
-                      <button
-                        onClick={() =>
-                          handleUpdateActiveWeek(item.id, item.active_week, 1)
-                        }
-                        className="w-7 h-7 bg-white border border-slate-300 rounded-lg font-bold text-slate-700 hover:bg-slate-100 flex items-center justify-center text-xs shadow-sm"
-                      >
-                        +
-                      </button>
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          setRombels((prev) =>
+                            prev.map((r) =>
+                              r.id === item.id
+                                ? {
+                                    ...r,
+                                    active_week: isNaN(val) ? ("" as any) : val,
+                                  }
+                                : r,
+                            ),
+                          );
+                        }}
+                        onBlur={(e) => {
+                          const val = parseInt(e.target.value) || 1;
+                          handleUpdateActiveWeek(item.id, val);
+                        }}
+                        className="w-16 h-8 px-1 text-center border-2 border-slate-200 rounded-lg text-sm font-black text-emerald-700 bg-white focus:border-emerald-500 focus:ring-0 shadow-sm hide-arrows"
+                      />
                     </div>
 
                     <button

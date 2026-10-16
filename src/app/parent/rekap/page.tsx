@@ -93,7 +93,6 @@ export default function ParentRekapPage() {
   const [indicators, setIndicators] = useState<Indicator[]>([]);
   const [studentScores, setStudentScores] = useState<ScoreItem[]>([]);
 
-  // State untuk mapel yang sedang dilihat orang tua
   const [activeSubject, setActiveSubject] = useState<string>(SUBJECTS[0]);
 
   const [loadingInitial, setLoadingInitial] = useState(true);
@@ -212,7 +211,6 @@ export default function ParentRekapPage() {
     (s) => Number(s.week_number) === Number(selectedWeek),
   );
 
-  // PERBAIKAN LOGIKA: Semua kategori wajib mengikuti activeSubject
   const getScoreInfo = (indicatorId: number) => {
     const found = scoresForWeek.find(
       (s) =>
@@ -227,7 +225,6 @@ export default function ParentRekapPage() {
     };
   };
 
-  // PERBAIKAN LOGIKA: Rata-rata per kategori wajib mengikuti activeSubject
   const getCategoryAverage = (catId: number) => {
     const indList = indicators.filter(
       (i) => Number(i.category_id) === Number(catId),
@@ -263,7 +260,6 @@ export default function ParentRekapPage() {
   const scoreTugas = getCategoryScoreByName("Tugas");
   const scoreSikap = getCategoryScoreByName("Sikap");
 
-  // Perhitungan Rata-Rata Komponen Harian / Disiplin (Hadir, Tugas, Sikap)
   const dailyComponents = [scoreKehadiran, scoreTugas, scoreSikap].filter(
     (s) => s > 0,
   );
@@ -287,19 +283,19 @@ export default function ParentRekapPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 sm:p-8">
+    <div className="min-h-screen p-4 sm:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <Link
             href="/parent"
-            className="inline-flex items-center space-x-2 text-sm font-bold text-slate-500 hover:text-emerald-600 transition-colors bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm"
+            className="inline-flex items-center space-x-2 text-sm font-bold text-slate-500 hover:text-emerald-600 transition-colors bg-white/45 backdrop-blur-[2px] px-4 py-2 rounded-xl border border-white/40 shadow-sm"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Kembali ke Beranda Portal</span>
           </Link>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm text-center space-y-2">
+        <div className="bg-white/45 backdrop-blur-[2px] p-6 rounded-2xl border border-white/40 shadow-sm text-center space-y-2">
           <div className="inline-flex p-3 bg-emerald-50 text-emerald-600 rounded-2xl mb-1">
             <BookOpen className="w-8 h-8" />
           </div>
@@ -312,9 +308,8 @@ export default function ParentRekapPage() {
           </p>
         </div>
 
-        {/* STEP 1 & 2 */}
         {!selectedLevel && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+          <div className="bg-white/35 backdrop-blur-[3px] p-6 rounded-2xl border border-white/30 shadow-sm space-y-4">
             <h2 className="text-sm font-bold text-slate-800 flex items-center space-x-2">
               <GraduationCap className="w-4 h-4 text-emerald-600" />
               <span>Langkah 1: Pilih Tingkat Kelas</span>
@@ -330,12 +325,12 @@ export default function ParentRekapPage() {
                   <button
                     key={lvl}
                     onClick={() => setSelectedLevel(lvl)}
-                    className="p-4 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition-all text-center font-bold text-slate-800 shadow-sm"
+                    className="p-4 bg-white/55 backdrop-blur-[1px] rounded-xl border border-white/50 hover:border-emerald-400 hover:bg-white/70 transition-all text-center font-bold text-slate-800 shadow-sm"
                   >
                     <span className="text-xl text-emerald-600 block">
                       Kelas {lvl}
                     </span>
-                    <span className="text-xs font-normal text-slate-400 block mt-1">
+                    <span className="text-xs font-normal text-slate-500 block mt-1">
                       {rombels.filter((r) => r.level === lvl).length} Rombel
                     </span>
                   </button>
@@ -346,15 +341,15 @@ export default function ParentRekapPage() {
         )}
 
         {selectedLevel && !selectedRombel && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="bg-white/35 backdrop-blur-[3px] p-6 rounded-2xl border border-white/30 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-white/40 pb-3">
               <h2 className="text-sm font-bold text-slate-800 flex items-center space-x-2">
                 <Users className="w-4 h-4 text-emerald-600" />
                 <span>Langkah 2: Pilih Rombel (Kelas {selectedLevel})</span>
               </h2>
               <button
                 onClick={() => setSelectedLevel(null)}
-                className="text-xs flex items-center space-x-1 text-slate-500 hover:text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg"
+                className="text-xs flex items-center space-x-1 text-slate-500 hover:text-slate-700 bg-white/60 px-3 py-1.5 rounded-lg"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Kembali</span>
@@ -365,13 +360,13 @@ export default function ParentRekapPage() {
                 <button
                   key={r.id}
                   onClick={() => setSelectedRombel(r)}
-                  className="p-4 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition-all text-left shadow-sm flex justify-between items-center"
+                  className="p-4 bg-white/55 backdrop-blur-[1px] rounded-xl border border-white/50 hover:border-emerald-400 hover:bg-white/70 transition-all text-left shadow-sm flex justify-between items-center"
                 >
                   <div>
                     <span className="block text-slate-900 font-semibold">
                       {r.name}
                     </span>
-                    <span className="text-xs font-normal text-slate-400">
+                    <span className="text-xs font-normal text-slate-500">
                       {r.student_count || 0} Siswa
                     </span>
                   </div>
@@ -381,10 +376,9 @@ export default function ParentRekapPage() {
           </div>
         )}
 
-        {/* STEP 3 */}
         {selectedRombel && !selectedStudent && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+          <div className="bg-white/35 backdrop-blur-[3px] p-6 rounded-2xl border border-white/30 shadow-sm space-y-5">
+            <div className="flex justify-between items-center border-b border-white/40 pb-4">
               <div>
                 <span className="text-xs font-bold text-emerald-600 uppercase">
                   Rombel Aktif
@@ -398,24 +392,24 @@ export default function ParentRekapPage() {
                   setSelectedRombel(null);
                   setSelectedStudent(null);
                 }}
-                className="text-xs flex items-center space-x-1 text-slate-500 hover:bg-slate-100 px-3 py-1.5 rounded-lg"
+                className="text-xs flex items-center space-x-1 text-slate-500 hover:bg-white/60 px-3 py-1.5 rounded-lg"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Ganti Rombel</span>
               </button>
             </div>
             <div className="space-y-3">
-              <label className="block text-xs font-semibold text-slate-600 uppercase">
+              <label className="block text-xs font-semibold text-slate-700 uppercase">
                 Langkah 3: Cari Nama Siswa
               </label>
               <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                <Search className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
                 <input
                   type="text"
                   placeholder="Ketik nama anak..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full pl-9 pr-3.5 py-2.5 border border-white/50 bg-white/60 backdrop-blur-sm rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none placeholder-slate-400"
                 />
               </div>
               {loadingStudents ? (
@@ -428,12 +422,12 @@ export default function ParentRekapPage() {
                     <button
                       key={student.id}
                       onClick={() => handleSelectStudent(student)}
-                      className="text-left p-4 rounded-xl border bg-white border-slate-200 hover:border-emerald-400 transition-all text-sm font-medium"
+                      className="text-left p-4 rounded-xl border bg-white/55 backdrop-blur-[1px] border-white/50 hover:border-emerald-400 hover:bg-white/70 transition-all text-sm font-medium shadow-sm"
                     >
                       <span className="block truncate text-slate-800 font-bold">
                         {student.name}
                       </span>
-                      <span className="text-xs text-slate-400 block mt-1">
+                      <span className="text-xs text-slate-500 block mt-1">
                         NISN: {student.nisn}
                       </span>
                     </button>
@@ -444,18 +438,17 @@ export default function ParentRekapPage() {
           </div>
         )}
 
-        {/* STEP 4: RAPOR BERTINGKAT & KOTAK RINGKASAN */}
         {selectedStudent && (
-          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+          <div className="bg-white/45 backdrop-blur-[3px] p-6 sm:p-8 rounded-3xl border border-white/40 shadow-sm space-y-6">
             <button
               onClick={() => setSelectedStudent(null)}
-              className="inline-flex items-center space-x-2 text-sm font-bold text-slate-500 hover:text-emerald-600 transition-colors bg-slate-50 px-4 py-2 rounded-xl"
+              className="inline-flex items-center space-x-2 text-sm font-bold text-slate-500 hover:text-emerald-600 transition-colors bg-white/60 px-4 py-2 rounded-xl"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Kembali ke Daftar Siswa</span>
             </button>
 
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 p-5 rounded-2xl border border-slate-200 gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white/50 p-5 rounded-2xl border border-white/60 gap-4 shadow-sm">
               <div>
                 <span className="text-xs font-black text-emerald-600 uppercase tracking-widest">
                   Rapor Perkembangan
@@ -463,19 +456,19 @@ export default function ParentRekapPage() {
                 <h3 className="text-2xl font-black text-slate-900 mt-1">
                   {selectedStudent.name}
                 </h3>
-                <p className="text-sm text-slate-500 mt-1">
+                <p className="text-sm text-slate-600 mt-1">
                   NISN: {selectedStudent.nisn} | Rombel: {selectedRombel?.name}
                 </p>
               </div>
 
-              <div className="flex items-center space-x-3 bg-white p-2.5 px-4 rounded-xl border border-slate-200 shadow-sm">
+              <div className="flex items-center space-x-3 bg-white/70 p-2.5 px-4 rounded-xl border border-white/80 shadow-sm">
                 <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                   Pilih Minggu:
                 </span>
                 <select
                   value={selectedWeek}
                   onChange={(e) => setSelectedWeek(parseInt(e.target.value))}
-                  className="px-3 py-1.5 border-2 border-emerald-500 rounded-lg text-sm font-bold bg-emerald-50 text-emerald-800 cursor-pointer outline-none"
+                  className="px-3 py-1.5 border-2 border-emerald-500 rounded-lg text-sm font-bold bg-emerald-50/80 text-emerald-800 cursor-pointer outline-none backdrop-blur-sm"
                 >
                   {Array.from({ length: 24 }, (_, i) => i + 1).map((w) => (
                     <option key={w} value={w}>
@@ -489,14 +482,13 @@ export default function ParentRekapPage() {
             {loadingReport ? (
               <div className="text-center py-12 space-y-2">
                 <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-slate-600">
                   Memuat rekapitulasi nilai...
                 </p>
               </div>
             ) : (
               <div className="space-y-8">
-                {/* PILIHAN MATA PELAJARAN */}
-                <div className="bg-emerald-50/60 p-5 rounded-2xl border border-emerald-200 space-y-2 shadow-sm">
+                <div className="bg-emerald-50/70 backdrop-blur-sm p-5 rounded-2xl border border-emerald-200/50 space-y-2 shadow-sm">
                   <label className="text-xs font-extrabold text-emerald-800 uppercase flex items-center gap-2">
                     <BookMarked className="w-4 h-4 text-emerald-600" />
                     Mata Pelajaran yang Sedang Dilihat Rapornya:
@@ -504,7 +496,7 @@ export default function ParentRekapPage() {
                   <select
                     value={activeSubject}
                     onChange={(e) => setActiveSubject(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-emerald-300 rounded-xl text-sm font-bold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-sm"
+                    className="w-full px-4 py-3 border-2 border-emerald-300/60 rounded-xl text-sm font-bold text-slate-800 bg-white/80 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-sm backdrop-blur-sm"
                   >
                     {Object.entries(SUBJECT_GROUPS).map(
                       ([groupName, subjects]) => (
@@ -528,26 +520,24 @@ export default function ParentRekapPage() {
                   </select>
                 </div>
 
-                {/* KOTAK RINGKASAN PERKEMBANGAN (PERSIS SEPERTI HALAMAN GURU) */}
-                <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 space-y-4 shadow-sm">
+                <div className="bg-white/60 backdrop-blur-[2px] rounded-2xl border border-white/50 p-5 sm:p-6 space-y-4 shadow-sm">
                   <div>
                     <h4 className="text-base font-bold text-slate-800">
                       Ringkasan Perkembangan (Mapel: {activeSubject})
                     </h4>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-slate-600 mt-1">
                       Rata-rata nilai pada minggu ke-{selectedWeek} untuk mata
                       pelajaran {activeSubject}.
                     </p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Kotak Kiri: Ulangan Harian (UH) */}
-                    <div className="bg-amber-50/30 border border-amber-200 rounded-2xl p-5 flex items-center justify-between">
+                    <div className="bg-amber-50/50 backdrop-blur-sm border border-amber-200/60 rounded-2xl p-5 flex items-center justify-between shadow-sm">
                       <div>
                         <span className="text-xs font-bold text-amber-800 uppercase tracking-wider block">
                           Nilai Ulangan Harian
                         </span>
-                        <span className="text-xs text-slate-500 block mt-0.5">
+                        <span className="text-xs text-slate-600 block mt-0.5">
                           Rata-rata dari seluruh UH
                         </span>
                       </div>
@@ -556,37 +546,36 @@ export default function ParentRekapPage() {
                       </span>
                     </div>
 
-                    {/* Kotak Kanan: Komponen Harian / Disiplin */}
-                    <div className="bg-emerald-50/20 border border-emerald-200 rounded-2xl p-4 flex flex-col justify-between">
+                    <div className="bg-emerald-50/40 backdrop-blur-sm border border-emerald-200/60 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
                       <span className="text-[11px] font-extrabold text-emerald-800 uppercase tracking-wider block mb-3">
                         Komponen Harian / Disiplin
                       </span>
                       <div className="grid grid-cols-4 gap-2 text-center">
-                        <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                        <div className="bg-white/80 p-2.5 rounded-xl border border-slate-200/60 shadow-sm flex flex-col justify-between">
                           <span className="text-lg font-black text-slate-800">
                             {scoreKehadiran || "-"}
                           </span>
-                          <span className="text-[10px] font-bold text-slate-500 mt-1">
+                          <span className="text-[10px] font-bold text-slate-600 mt-1">
                             Hadir
                           </span>
                         </div>
-                        <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                        <div className="bg-white/80 p-2.5 rounded-xl border border-slate-200/60 shadow-sm flex flex-col justify-between">
                           <span className="text-lg font-black text-slate-800">
                             {scoreTugas || "-"}
                           </span>
-                          <span className="text-[10px] font-bold text-slate-500 mt-1">
+                          <span className="text-[10px] font-bold text-slate-600 mt-1">
                             Tugas
                           </span>
                         </div>
-                        <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                        <div className="bg-white/80 p-2.5 rounded-xl border border-slate-200/60 shadow-sm flex flex-col justify-between">
                           <span className="text-lg font-black text-slate-800">
                             {scoreSikap || "-"}
                           </span>
-                          <span className="text-[10px] font-bold text-slate-500 mt-1">
+                          <span className="text-[10px] font-bold text-slate-600 mt-1">
                             Sikap
                           </span>
                         </div>
-                        <div className="bg-emerald-600 text-white p-2.5 rounded-xl shadow-sm flex flex-col justify-between">
+                        <div className="bg-emerald-600/90 text-white p-2.5 rounded-xl shadow-sm flex flex-col justify-between">
                           <span className="text-lg font-black">
                             {dailyAverage || "-"}
                           </span>
@@ -599,7 +588,7 @@ export default function ParentRekapPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-2 pt-4 border-t border-slate-100">
+                <div className="flex items-center space-x-2 pt-4 border-t border-white/50">
                   <Award className="w-5 h-5 text-emerald-600" />
                   <h4 className="text-base font-bold text-slate-800">
                     Rincian Indikator Minggu ke-{selectedWeek} ({activeSubject})
@@ -616,9 +605,9 @@ export default function ParentRekapPage() {
                     return (
                       <div
                         key={variable.id}
-                        className="border-2 border-slate-100 rounded-2xl p-5 sm:p-6 space-y-5 bg-slate-50/30 shadow-sm"
+                        className="border border-white/60 rounded-2xl p-5 sm:p-6 space-y-5 bg-white/30 backdrop-blur-[2px] shadow-sm"
                       >
-                        <div className="border-b-2 border-emerald-500 pb-2 inline-block">
+                        <div className="border-b-2 border-emerald-500/70 pb-2 inline-block">
                           <h3 className="text-lg font-black text-slate-900 uppercase tracking-wider">
                             {variable.name}
                           </h3>
@@ -636,24 +625,24 @@ export default function ParentRekapPage() {
                             return (
                               <div
                                 key={cat.id}
-                                className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm"
+                                className="bg-white/60 backdrop-blur-[1px] border border-white/50 rounded-xl p-4 sm:p-5 shadow-sm"
                               >
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-3">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/60 pb-3 gap-3">
                                   <div className="flex items-center space-x-2">
                                     <FolderOpen className="w-5 h-5 text-emerald-600" />
                                     <h4 className="font-bold text-slate-800 uppercase text-sm tracking-wider">
                                       {cat.name}
                                     </h4>
-                                    <span className="text-[11px] font-bold px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md ml-2">
+                                    <span className="text-[11px] font-bold px-2 py-0.5 bg-white/70 text-slate-600 rounded-md ml-2 border border-slate-100">
                                       {indList.length} Butir
                                     </span>
                                   </div>
                                   <div className="flex items-center space-x-2">
-                                    <span className="text-xs text-slate-500 font-medium">
+                                    <span className="text-xs text-slate-600 font-medium">
                                       Rata-rata:
                                     </span>
                                     <span
-                                      className={`text-xs font-bold px-2.5 py-1 rounded-lg ${catAvg >= 85 ? "bg-emerald-100 text-emerald-800" : catAvg >= 70 ? "bg-blue-100 text-blue-800" : catAvg > 0 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"}`}
+                                      className={`text-xs font-bold px-2.5 py-1 rounded-lg ${catAvg >= 85 ? "bg-emerald-100 text-emerald-800" : catAvg >= 70 ? "bg-blue-100 text-blue-800" : catAvg > 0 ? "bg-amber-100 text-amber-800" : "bg-white/80 text-slate-600 border border-slate-200/50"}`}
                                     >
                                       {catAvg || "-"} (
                                       {catAvg >= 85
@@ -675,10 +664,10 @@ export default function ParentRekapPage() {
                                     return (
                                       <div
                                         key={ind.id}
-                                        className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between text-sm gap-3 hover:border-emerald-200 transition-colors"
+                                        className="bg-white/50 backdrop-blur-sm p-3.5 rounded-xl border border-white/60 flex flex-col sm:flex-row sm:items-center justify-between text-sm gap-3 hover:bg-white/70 transition-colors shadow-sm"
                                       >
                                         <div className="flex items-start space-x-3 pr-2">
-                                          <span className="w-5 h-5 shrink-0 bg-white border border-slate-200 text-slate-600 rounded flex items-center justify-center text-[10px] font-bold mt-0.5">
+                                          <span className="w-5 h-5 shrink-0 bg-white/80 border border-slate-200/50 text-slate-700 rounded flex items-center justify-center text-[10px] font-bold mt-0.5 shadow-sm">
                                             {iIdx + 1}
                                           </span>
                                           <div>
@@ -686,14 +675,14 @@ export default function ParentRekapPage() {
                                               {ind.name}
                                             </span>
                                             {info.notes && (
-                                              <p className="text-slate-500 italic text-xs mt-1 bg-white p-2 rounded border border-slate-100">
+                                              <p className="text-slate-600 italic text-xs mt-1 bg-white/60 p-2 rounded border border-white/50 shadow-sm">
                                                 Catatan Guru: "{info.notes}"
                                               </p>
                                             )}
                                           </div>
                                         </div>
                                         <div className="flex items-center space-x-2 self-end sm:self-auto shrink-0">
-                                          <span className="font-black text-slate-900 bg-white border border-slate-200 px-4 py-1.5 rounded-lg shadow-sm">
+                                          <span className="font-black text-slate-900 bg-white/90 border border-slate-200/50 px-4 py-1.5 rounded-lg shadow-sm">
                                             Nilai:{" "}
                                             {info.score !== null
                                               ? info.score
