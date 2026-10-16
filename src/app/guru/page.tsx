@@ -65,6 +65,7 @@ export default function LoginPage() {
       }
 
       // --- FITUR KUNCI LOGIN WALI KELAS ---
+      // Hanya batasi jika yang login adalah GURU/TEACHER. ADMIN BEBAS MASUK KAPAN SAJA!
       if (userRole === "teacher" || userRole === "guru") {
         const { data: settings } = await supabase
           .from("app_settings")
@@ -73,13 +74,11 @@ export default function LoginPage() {
           .single();
 
         const isLocked = settings?.is_teacher_locked ?? true;
-        const currentDay = new Date().getDay();
-        const isWeekend = currentDay === 0 || currentDay === 6;
 
-        if (isLocked && !isWeekend) {
+        if (isLocked) {
           await supabase.auth.signOut();
           throw new Error(
-            "Akses ditolak: Login Wali Kelas hanya dibuka pada hari Sabtu dan Minggu.",
+            "Akses ditolak: Login Wali Kelas sedang dikunci oleh Administrator.",
           );
         }
       }
